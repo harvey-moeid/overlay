@@ -23,3 +23,6 @@ Uji HP/emulator belum dijalankan. Instrumentation tests migration/Room/Keystore 
 M0 aplikasi pihak ketiga belum memiliki bukti fisik: adapter agent dibatasi ke BYGA. Screenshot/Vision, raw gestures, account-aware multi-app automation, dynamic AI replanning, event hub/agent scheduler, automatic skill learning, monetary cost cap dan publishing/send/delete/purchase agent tidak tersedia. Scheduler lama tetap pengingat dengan WAITING_FOR_USER.
 
 GitHub Actions outcome dicatat terpisah pada run commit terkait; status lokal di atas tidak mengklaim CI telah berjalan.
+
+### CI setup correction
+Run pertama berhenti sebelum build karena default setup-android meminta legacy SDK package `tools` yang tidak tersedia. Workflow sekarang hanya memasang `platform-tools` dan mematok command-line tools `13114758` yang telah dipakai lokal. Build/test aplikasi lokal tetap lulus; run koreksi menjadi bukti CI tersendiri.
