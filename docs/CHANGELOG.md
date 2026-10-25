@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.0-studio — 25 Oktober 2026
+
+### Implementasi
+- Dashboard navy/cyan, maskot robot, navigasi Home/Chat/Alur/Media dan semua modul, kartu status aktual, kontrol STOP tetap di header.
+- Chat AI multi-turn dan riwayat lokal, provider/model pilihan pengguna, fallback opt-in, cancellation transport, shared atomic daily request cap untuk Chat/Workflow/Vision.
+- Workflow library/editor/template/JSON, dry run, hash approval, executor tujuh aksi, pause/resume/stop, checkpoint yang menolak replay aksi belum pasti.
+- Prompt library, profil aplikasi/akun, guided switching dan konfirmasi akun kedaluwarsa, draft media/caption/hashtag dan handoff sharesheet dengan review akhir. Handoff tidak dianggap posting berhasil.
+- Scheduler multi-pengingat WIB, periodic/dependency/manual completion, history/pause/delete; tetap WAITING_FOR_USER tanpa auto UI.
+- MediaProjection satu frame, cache/preview lokal terbatas, pemeriksaan package/lock/field best effort, consent upload terpisah; adapter Vision OpenAI-compatible, Anthropic dan Gemini.
+- Input manual kolom fokus melalui bubble: review teks/target/akun, permit single-use 10 detik terikat field, pemeriksaan sensitif dan verifikasi nilai. Tidak ada tombol kirim/post otomatis; agent pihak ketiga tetap diblokir.
+- Backup konfigurasi terpilih tanpa key/chat/capture, import dengan ID baru, akun direset dan workflow tanpa persetujuan aktif. Clear logs menjaga template/provider metadata.
+
+### Validasi dan batas
+138 tes JVM termasuk UI Compose nyata melalui Robolectric SDK35. Gerbang lokal: `./scripts/cloud-build.sh testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug`. Hasil terakhir tercatat di TEST_MATRIX; laporan UI JVM menghasilkan preview dashboard, bukan bukti perangkat Android 16.
+
+Enam instrumentation tests disediakan dan APK tes dikompilasi. Upaya AVD API36 gagal pada service/discovery dan PackageInstaller/StorageManager sebelum pengujian aplikasi; tidak ada device test yang diklaim lulus. Provider inference memakai key nyata dan seluruh alur Accessibility/MediaProjection/target app masih perlu QA perangkat. Lihat QA_ANDROID, IMPLEMENTATION_STATUS dan COMPATIBILITY. Ini debug build, bukan release signing atau klaim final 99,9% PRD.
+
 ## 0.3.0-mascot-providers — 25 Oktober 2026
 
 ### IMPLEMENTED

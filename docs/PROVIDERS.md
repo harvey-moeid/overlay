@@ -1,4 +1,4 @@
-# AI providers & model picker — 0.3.0
+# AI providers & model picker — Studio 0.4.0
 
 Provider lama dipertahankan. Tambahan: Cohere, Hugging Face Inference Providers, Mistral, NVIDIA NIM. Tidak ada backend tambahan; request HTTPS langsung dari APK. Metadata non-secret Room tetap memakai type/url/model; key tetap AES-GCM Android Keystore. Nama enum lama dipertahankan, konfigurasi tersimpan tidak di-reset.
 
@@ -35,3 +35,8 @@ HTTPS tanpa credentials/query/fragment diwajibkan untuk base URL. Auth memakai h
 - NVIDIA API reference: https://docs.api.nvidia.com/nim/reference/llm-apis
 
 Halaman docs Cohere/NVIDIA menolak akses dari cloud ini; kontrak Cohere diperiksa melalui SDK resmi dan katalog HF/NVIDIA melalui endpoint publik. Tidak ada panggilan inference dengan credential nyata diuji di cloud. Ketersediaan model harus diuji pengguna dengan akun/runtime masing-masing.
+
+## Studio 0.4.0: Chat, request cap dan Vision
+AI Chat memakai provider tersimpan setelah consent, dengan fallback opsional dan daily request cap bersama workflow/Vision. Cancellation membatalkan coroutine dan transport terbaik sesuai tahap request; provider tetap dapat menagih request yang sudah diterima. Tidak ada jaminan harga dolar.
+
+Aktifkan Vision pada form atau kartu provider tersimpan hanya setelah memastikan ID model mendukung gambar. OpenAI-compatible, Anthropic image source dan Gemini inline_data memiliki adapter gambar; Cohere Vision sengaja tidak tersedia. Di Screen Capture, review gambar, pilih model, centang consent dan konfirmasi dialog kedua. Gambar diubah ke JPEG <=1024×2048, <=2MB; tidak ada automatic screenshot upload. Model discovery tidak membuktikan kemampuan Vision. Semua inference nyata masih membutuhkan validasi akun/perangkat.

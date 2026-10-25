@@ -57,6 +57,56 @@ class SafeAccessibilityService : AccessibilityService() {
         val field=list.firstOrNull { it.isEditable && it.isVisibleToUser && it.contentDescription?.toString()=="byga_safe_input" && !it.isPassword }
         return Observation(pkg,field?.text?.toString(),SystemClock.elapsedRealtime(),current===this && Settings.canDrawOverlays(this) && field!=null,locked)
     }
+    fun foregroundPackage():String = if(getSystemService(KeyguardManager::class.java).isKeyguardLocked) "" else rootInActiveWindow?.packageName?.toString() ?: ""
+    private fun fingerprint(node:AccessibilityNodeInfo)="${node.windowId}:${node.hashCode()}:${node.viewIdResourceName}:${node.className}:${node.inputType}"
+    fun focusedFieldFingerprint(target:String):String {
+        if(target !in ManualInputPermit.packages)return ""
+        val root=rootInActiveWindow ?: return ""
+        if(root.packageName?.toString()!=target)return ""
+        val field=root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return ""
+        if(!field.isEditable || field.isPassword || !field.isVisibleToUser)return ""
+        return fingerprint(field)
+    }
+    fun applyReviewedInput(permit:ManualInputPermit):UiResult {
+        val root=rootInActiveWindow ?: return UiResult.NOT_FOUND
+        val active=root.packageName?.toString() ?: return UiResult.BLOCKED
+        val locked=getSystemService(KeyguardManager::class.java).isKeyguardLocked
+        if(active !in ManualInputPermit.packages || locked)return UiResult.BLOCKED
+        val queue=java.util.ArrayDeque<AccessibilityNodeInfo>();queue.add(root);var count=0;var sensitive=false
+        while(queue.isNotEmpty() && count++<400){
+            val node=queue.removeFirst()
+            if(node.isPassword){sensitive=true;break}
+            val description=(node.contentDescription?.toString()?:"")+" "+(node.text?.toString()?:"")
+            if(active!=packageName && Regex("(?i)\\b(otp|2fa|verification code|kode verifikasi|kode keamanan|sign in|log in)\\b").containsMatchIn(description)){sensitive=true;break}
+            for(i in 0 until minOf(50,node.childCount))node.getChild(i)?.let{queue.add(it)}
+        }
+        if(queue.isNotEmpty() && !sensitive)return UiResult.BLOCKED
+        val field=root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return UiResult.NOT_FOUND
+        if(!permit.claim(active,locked,sensitive,SystemClock.elapsedRealtime(),fingerprint(field)))return UiResult.BLOCKED
+        if(SystemClock.elapsedRealtime()-lastAction<750)return UiResult.BLOCKED
+        if(field.packageName?.toString()!=permit.target || !field.isEditable || !field.isEnabled || !field.isVisibleToUser || field.isPassword)return UiResult.BLOCKED
+        if(field.actionList.none{it.id==AccessibilityNodeInfo.ACTION_SET_TEXT})return UiResult.BLOCKED
+        lastAction=SystemClock.elapsedRealtime()
+        val args=Bundle().apply{putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,permit.value)}
+        if(!field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,args))return UiResult.UNKNOWN
+        field.refresh()
+        return if(field.text?.toString()==permit.value)UiResult.SUCCESS else UiResult.UNKNOWN
+    }
+    fun captureAllowed(requested: String): Boolean {
+        val root=rootInActiveWindow ?: return false
+        val active=root.packageName?.toString() ?: return false
+        val locked=getSystemService(KeyguardManager::class.java).isKeyguardLocked
+        if(!com.byga.smartoverlay.capture.CapturePolicy.mayCapture(requested,active,locked,false)) return false
+        val queue=java.util.ArrayDeque<AccessibilityNodeInfo>();queue.add(root);var count=0
+        while(queue.isNotEmpty() && count++<500) {
+            val node=queue.removeFirst()
+            if(node.isPassword)return false
+            val text=(node.text?.toString() ?: "")+" "+(node.contentDescription?.toString() ?: "")
+            if(node.isEditable && Regex("(?i)\\b(otp|2fa|one.time.password|verification code|kode verifikasi|kode keamanan|sign in|log in)\\b").containsMatchIn(text))return false
+            for(i in 0 until minOf(node.childCount,50))node.getChild(i)?.let{queue.add(it)}
+        }
+        return queue.isEmpty()
+    }
     fun performClick(): UiResult = UiResult.BLOCKED
     fun scroll(): UiResult = UiResult.BLOCKED
 }

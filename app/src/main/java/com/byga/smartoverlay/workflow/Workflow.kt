@@ -9,9 +9,13 @@ data class Step(val action: Action, val value: String = "", val packageName: Str
 data class Plan(val name: String, val steps: List<Step>) {
     fun fingerprint(): String = MessageDigest.getInstance("SHA-256").digest(toString().toByteArray()).joinToString("") { "%02x".format(it) }
     fun validate(): List<String> = buildList {
-        if (name.isBlank()) add("Nama wajib diisi")
+        if (name.isBlank() || name.length>120) add("Nama wajib 1–120 karakter")
+        if(steps.sumOf{it.value.length+it.packageName.length+it.selector.length}>96000) add("Total isi workflow terlalu besar")
         if (steps.isEmpty() || steps.size > 50) add("Workflow perlu 1–50 langkah")
         steps.forEachIndexed { i, s ->
+            if(s.value.length>32000) add("Langkah ${i+1}: isi melebihi 32000 karakter")
+            if(s.action in setOf(Action.COPY_TEXT,Action.GENERATE_AI_TEXT) && s.value.isBlank()) add("Langkah ${i+1}: teks wajib")
+            if(s.action==Action.LAUNCH_APP && !s.packageName.matches(Regex("[A-Za-z][A-Za-z0-9_]*([.][A-Za-z0-9_]+)+"))) add("Langkah ${i+1}: package tidak valid")
             if (s.action in setOf(Action.FIND_NODE, Action.SET_TEXT, Action.CLICK_NODE, Action.TAP_NATIVE_DOWNLOAD) && (s.selector.isBlank() || s.packageName.isBlank())) add("Langkah ${i+1}: package dan selector wajib")
             if (s.action == Action.DELAY && (s.value.toLongOrNull() ?: -1) !in 0..30000) add("Delay harus 0–30000 ms")
             if (s.action == Action.DOWNLOAD_URL && !secureUrl(s.value)) add("URL wajib HTTPS")

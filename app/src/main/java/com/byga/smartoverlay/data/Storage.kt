@@ -18,11 +18,12 @@ val Context.settings by preferencesDataStore("byga_settings")
 @Entity(tableName="records", primaryKeys=["kind","id"])
 data class Record(val kind: String, val id: String, val body: String, val updatedAt: Long = System.currentTimeMillis())
 @Dao interface Records {
+    @Query("SELECT * FROM records WHERE kind IN ('workflow','prompt','account','app') ORDER BY updatedAt DESC") fun exportable(): Flow<List<Record>>
     @Query("SELECT * FROM records WHERE kind = :kind ORDER BY updatedAt DESC") fun observe(kind: String): Flow<List<Record>>
     @Query("SELECT * FROM records WHERE kind = :kind AND id = :id") suspend fun get(kind: String, id: String): Record?
     @Insert(onConflict=OnConflictStrategy.REPLACE) suspend fun save(value: Record)
     @Query("DELETE FROM records WHERE kind = :kind AND id = :id") suspend fun delete(kind: String, id: String)
-    @Query("DELETE FROM records WHERE kind IN ('diagnostic', 'execution', 'prompt')") suspend fun clearHistory()
+    @Query("DELETE FROM records WHERE kind IN ('diagnostic', 'execution', 'audit')") suspend fun clearHistory()
 }
 @Database(entities=[Record::class, AgentTaskRow::class, MemoryEntry::class, SkillRow::class, CompatibilityRow::class], version=2, exportSchema=true)
 abstract class BygaDatabase : RoomDatabase() {

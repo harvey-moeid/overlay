@@ -1,18 +1,15 @@
-# Arsitektur yang dibuat
+# Arsitektur Studio 0.4.0
 
-Seluruh orkestrasi di Android; tidak ada server pribadi, analytics, atau login pihak ketiga.
+Seluruh orkestrasi di Android; tidak ada server pribadi, analytics atau penyimpanan login pihak ketiga. Rincian modul dan lifecycle: [STUDIO_ARCHITECTURE.md](STUDIO_ARCHITECTURE.md). Batas implementasi terhadap PRD: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 
-- `MainActivity.kt`: Compose Material 3 navy/cyan, tab navigasi, permission disclosure, prompt/copy/share, test input, editor lokal, profil akun, konfigurasi provider, pengingat, monitor, diagnostik manual, privasi.
-- `overlay/OverlayService.kt`: foreground `specialUse`, WindowManager maskot robot transparan 56–96dp (default 72dp), drag/dock, panel prompt focusable hanya saat dibuka, notification Stop, long-press Stop, cleanup/rotation.
-- `accessibility/SafeAccessibilityService.kt`: tidak mengumpulkan teks event. Hanya package BYGA dan selector kolom uji, password dikecualikan, rate limit. Click/scroll/gesture pihak ketiga BLOCKED. Bukan accessibility tool untuk disabilitas.
-- `workflow/Workflow.kt`: typed action enum, schema validation, hash persetujuan, policy akun/retry/scheduler, ledger in-memory. Executor PoC di Activity **hanya** COPY_TEXT/DELAY/STOP; approval tidak dipersist. Job dibatalkan saat Activity dihancurkan. Room checkpoint tidak memicu replay otomatis. Ledger bukan jaminan durable at-most-once; tidak ada aksi publish yang dieksekusi.
-- `data/Storage.kt`: Room records berdasarkan jenis/id, DataStore preference, AES-GCM dengan Keystore dan AAD provider id; backup aplikasi dinonaktifkan. Schema v1/v2 diekspor; migrasi 1→2 menambahkan tabel agent dan menjaga records lama. Record payload JSON saat ini belum model relational lengkap PRD.
-- `ai/Providers.kt`: adapter teks OpenAI-compatible (OpenAI/OpenRouter/Groq/Hugging Face/Mistral/NVIDIA NIM/custom), Cohere Chat v2, Anthropic Messages, Gemini generateContent; katalog saran + model discovery on-demand. HTTPS, timeout 30s, redirect/retry transport dimatikan, respons dibatasi 1MiB, error hanya kode. Health test eksplisit di UI. Fake dan fallback maksimal tiga adapter tersedia; routing fallback, role dan budgets belum terhubung UI. Vision belum diimplementasi.
-- `media/Handoffs.kt`: clipboard, ACTION_SEND teks/media dengan URI grant, app launch intent. Media dipilih melalui SAF; status share hanya HANDED_OFF. DirectDownload memeriksa HTTPS, MIME, signature awal dan streaming <=50MB, menolak redirect, menulis MediaStore pending lalu memverifikasi file sebelum selesai (Android 10+).
-- `scheduler/ReminderWorker.kt`: WorkManager pengingat sekali/periodik (>=15 menit); menyimpan WAITING_FOR_USER dan notifikasi. Tidak menjalankan UI di background, tidak menjanjikan exact time.
+- MainActivity/DesignSystem: Compose Material3, navigasi tetap, state per halaman, status izin/service aktual dan STOP global.
+- OverlayService: foreground specialUse, maskot transparan/drag/dock, panel Quick Studio, notification/long-press Stop. Input manusia dibatasi permit singkat dan satu field terverifikasi; bukan otomasi kirim/post.
+- SafeAccessibilityService: metadata package/fokus dan pengaman field, scoped manual ACTION_SET_TEXT; agent hanya tool harness milik BYGA. Tidak ada click/gesture agent pihak ketiga.
+- ChatViewModel/AiRepository: conversation lokal terbatas, provider pilihan/consent, fallback opt-in dan shared transactional request count. Provider HTTPS async cancellable, tanpa retry/redirect otomatis; native text/image protocols sesuai capability. Monetary cap belum ada.
+- WorkflowRunner/WorkflowViewModel: typed JSON, review hash, single-run mutex, approvals, tujuh action adapters, checkpoint uncertain dan pause/resume/stop. Aksi DSL belum didukung tetap BLOCKED.
+- CaptureService/VisionReview: MediaProjection satu frame dengan izin sistem per sesi, foreground mediaProjection, target/lock/sensitive checks best effort, cache privat dan preview berpaginasi. Upload gambar perlu consent kedua. Vision output teks tidak dieksekusi sebagai tool.
+- Accounts/Publishing/Handoffs: konfirmasi akun manual berumur pendek, SAF URI grants, draft library dan sharesheet tujuan eksplisit; hasil hanya HANDED_OFF.
+- ScheduleWorker: pengingat sekali/periodik WorkManager, dependensi completion manual dan notifikasi WAITING_FOR_USER. Tidak menjalankan AI/UI otomatis atau menjanjikan exact time.
+- Storage/ConfigTransfer: Room schema2 dengan migrasi1→2, records dan tabel agent, DataStore preference; AES-GCM Android Keystore khusus API keys. Backup aplikasi dinonaktifkan. Export/import whitelist mengecualikan secrets, chat, capture dan active grants; import tidak memberi persetujuan eksekusi.
 
-Penyimpanan provider hanya menyertakan metadata non-secret. Key tidak ada pada database, log, backup atau build. Tidak mengekspor data otomatis. Layar Android dapat dihentikan/di-recreate; belum ada recovery otomatis berisiko.
-
-Belum terimplementasi: macro recording, AI workflow import, branching executor, native download controller, MediaProjection/Vision, posting automation, verifikasi identitas akun otomatis, dependency/priority queue. UI menjelaskan batasan ini.
-
-Ekstensi agent v2: lihat [AGENT_ARCHITECTURE.md](AGENT_ARCHITECTURE.md). Modul v1 di atas tetap dipertahankan.
+Dokumen agent khusus: [AGENT_ARCHITECTURE.md](AGENT_ARCHITECTURE.md). Agent experimental tetap OFF default dan tidak mendapat kemampuan pihak ketiga dari jalur input manual. Database teks bersifat app-private, bukan seluruhnya terenkripsi; cache tidak dikirim otomatis. Pengujian dan batas runtime: [TEST_MATRIX.md](TEST_MATRIX.md), [QA_ANDROID.md](QA_ANDROID.md).

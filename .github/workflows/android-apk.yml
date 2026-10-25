@@ -38,3 +38,10 @@ jobs:
           name: unit-test-reports
           path: app/build/reports/tests/testDebugUnitTest/
           if-no-files-found: ignore
+      - name: Dashboard preview (JVM SDK35)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-preview-jvm-sdk35
+          path: app/build/reports/ui/byga-home.png
+          if-no-files-found: ignore

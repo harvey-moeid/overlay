@@ -1,72 +1,58 @@
-# BYGA Smart Overlay
+# BYGA Smart Overlay — Studio
 
-PoC Android Kotlin/Compose berbahasa Indonesia, portrait-first, navy/blue/cyan. Semua orkestrasi di HP; tidak ada backend pribadi, root, ADB atau Shizuku untuk penggunaan aplikasi. Baseline 22 keputusan: [PRD asli](docs/PRD.md). Ekstensi Experimental Agent: [PRD v2 asli](docs/PRD_v2.md).
+Asisten produktivitas Android berbahasa Indonesia: dashboard navy/cyan, robot bubble, AI Chat, workflow yang direview, serta studio draft sosial. Orkestrasi dan data berada di HP; provider AI dihubungi langsung melalui HTTPS. Tidak ada backend pribadi, root, Shizuku, atau kebutuhan ADB untuk penggunaan aplikasi.
 
-**Status:** fondasi Phase 0 dan subset Phase 1–3. Bukan asisten otonom penuh. Kontrol UI pihak ketiga, screenshot/Vision, kontrol native download dan publishing otomatis belum tersedia. Kompatibilitas aplikasi target belum dibuktikan pada HP.
+**Rilis 0.4.0 Studio adalah pengembangan fungsional, bukan klaim PRD selesai 99,9%.** Build/test cloud tidak membuktikan kompatibilitas aplikasi target atau Samsung. Lihat [status PRD](docs/IMPLEMENTATION_STATUS.md) dan [matriks uji](docs/TEST_MATRIX.md). Baseline asli tetap utuh: [PRD v1](docs/PRD.md), [PRD v2](docs/PRD_v2.md).
 
-## Robot bubble & provider baru (0.3.0)
+## Memperoleh APK
 
-Bubble kini berupa maskot robot biru transparan seperti arah referensi. Settings → **Robot bubble BYGA** menampilkan preview dan ukuran 56–96dp (default 72dp). Drag/dock, panel prompt dan Stop tetap tersedia.
+Buka **GitHub → Actions → Android Debug APK → run sukses → Artifacts → BYGA-Smart-Overlay-debug**. Ekstrak ZIP, transfer `app-debug.apk` ke HP dan instal melalui installer Android. Debug signing key pada runner berbeda dapat berbeda; update yang ditolak installer mungkin memerlukan uninstall (menghapus data lokal). Tidak ada release-signing key atau API key dalam CI.
 
-AI Providers menambahkan **Cohere, Hugging Face, Mistral, NVIDIA NIM**. Pilih provider → isi key → pilih model saran atau **Ambil model dari API** → Simpan → Test koneksi. Pilihan manual tetap tersedia; kuota/akses model mengikuti akun. Lihat [panduan provider/model](docs/PROVIDERS.md) dan [bubble mascot](docs/BUBBLE_MASCOT.md).
+## Yang dapat digunakan
 
-## Experimental Agent v2
+- **Dashboard & navigasi:** hero robot, status izin/bubble aktual, hitungan data tersimpan, shortcut dan navigasi bawah. Lainnya membuka seluruh workspace. Tombol Stop di toolbar membatalkan chat/workflow/agent/capture dan menutup bubble.
+- **Robot bubble:** PNG transparan, ukuran 56–96dp, drag/dock, panel prompt/clipboard/share, long-press dan notification Stop, serta panel scrollable. Input manual ke kolom fokus di BYGA/ChatGPT/Claude/TikTok/Instagram memakai review teks/akun/target dan permit single-use 10 detik; tidak menekan Kirim. Atur di Settings.
+- **AI Chat:** provider/model tersimpan, percakapan multi-turn lokal, consent outbound, fallback opsional maksimal tiga provider, batas request harian, cancellation, riwayat/delete, copy dan kirim hasil ke draft sosial. Limit menghitung reservasi percobaan AI Chat/Workflow, bukan biaya dolar; Agent Lab/health test terpisah.
+- **Providers:** OpenAI, Anthropic, Gemini, OpenRouter, Groq, Cohere, Hugging Face, Mistral, NVIDIA NIM, custom HTTPS. Picker model saran/live/manual. API key AES-GCM Android Keystore. [Panduan](docs/PROVIDERS.md).
+- **Prompt Library:** banyak template, tag/search/favorite, edit/copy, gunakan di Chat atau draft. Tidak ada request otomatis saat membuka template.
+- **Workflow Studio:** library/templates, reorder/edit/import/export, dry run, hash approval, runner di ViewModel, pause/resume/stop dan checkpoint. COPY_TEXT, DELAY, LAUNCH_APP, GENERATE_AI_TEXT, DOWNLOAD_URL, REQUEST_USER_APPROVAL, STOP tersedia. Checkpoint tidak pasti tidak boleh replay otomatis; output dipersist privat untuk resume. Aksi DSL lainnya diblokir.
+- **Accounts:** package/label/alias, guided launch untuk switch/login resmi, status UNKNOWN/NEEDS_LOGIN/USER_CONFIRMED. Konfirmasi pengguna berlaku 5 menit dan bukan deteksi akun otomatis.
+- **Media & Social:** SAF picker, preview gambar, caption/hashtag, library draft, account binding, review dialog dan targeted sharesheet Instagram/TikTok. HANDED_OFF **bukan PUBLISHED**; final posting tetap oleh pengguna di app tujuan.
+- **Downloads:** URL HTTPS langsung, batas 50MB, MIME/signature check, MediaStore pending/file verification. Login/redirect/format tak didukung ditolak.
+- **Scheduler:** banyak pengingat one-time WIB/recurring >=15 menit, priority list, dependensi yang menunggu konfirmasi manual, pause/delete/history. OS boleh menunda; tidak menjanjikan exact minute atau urutan OS. Worker hanya notifikasi/WAITING_FOR_USER.
+- **Screen Capture:** MediaProjection satu sesi setelah dialog sistem; foreground service, app allowlist/keyguard/field checks best effort, bubble ditutup, cache privat dan preview. Tidak ada upload AI otomatis. Analisis Vision opsional dan sharesheet masing-masing memerlukan consent kedua. Cache >24 jam dibersihkan pada sesi berikutnya. FLAG_SECURE tetap diproteksi Android; browser tidak diizinkan karena domain belum diverifikasi.
+- **Agent Lab/Skills/Memory:** flag OFF default, scope sesi, observe/act/verify kolom uji BYGA, immutable grants, skill test/review/enable, memory manual opt-in/search/delete/export. Kontrol pihak ketiga belum diaktifkan.
+- **Settings:** reduce motion, preview/size bubble, backup konfigurasi tanpa key/chat/capture, import inert dengan ID baru dan konfirmasi akun direset. Ekspor maksimal 100 entri; ekspor per workflow tersedia untuk library lebih besar.
 
-Tab **Agent Experimental** menambah draft goal/koreksi, scope per sesi, policy gates, observe→act→verify pada kolom uji BYGA, timeline WIB, pause/resume/stop, skill lifecycle, memory opt-in dan Compatibility Lab. Flag awal **OFF**. Grant tidak diwariskan ke thread/skill/jadwal.
+## Mulai pada HP
 
-Mulai dari izin overlay + Accessibility, aktifkan flag, buat draft lokal tanpa biaya, tinjau scope lalu jalankan. Agent harus mengisi **kolom uji di layar Agent** dan membaca hasilnya sebelum COMPLETED. Ini belum membuktikan kontrol aplikasi pihak ketiga. Planner provider opsional hanya mengirim goal/koreksi yang diketik setelah Anda menekan tombol; tidak ada capture atau pengiriman UI tree/memory. Jangan tulis rahasia dalam goal.
+1. Buka **Lainnya → Izin & Onboarding**. Atur overlay dan notifikasi. Accessibility opsional untuk uji input/capture; baca disclosure sebelum Settings sistem. Android sideload dapat meminta **Info aplikasi → ⋮ → Izinkan setelan terbatas** melalui pengaturan resmi.
+2. Di AI Providers, pilih provider, isi key/model, simpan terenkripsi. Model discovery bukan jaminan akses/kuota. Health test mengirim prompt kecil dan bisa berbiaya.
+3. Buka AI Chat, pilih model, tinjau consent dan request limit, lalu kirim. Hasil bisa dijadikan draft sosial.
+4. Di Accounts, buat profil akun tujuan; buka app resmi dan periksa handle. Konfirmasi manual hanya setelah melihatnya. Di Media, pilih file/caption/akun, review, lalu lanjutkan draft ke app tujuan. Periksa akun lagi sebelum posting.
+5. Di Workflow Studio, pilih template, edit dan dry run, pilih provider/consent bila ada langkah AI. Review hash lalu Jalankan. Approval step menunggu tombol persetujuan; checkpoint uncertain harus diperiksa manual, tidak diulang otomatis.
+6. Di Scheduler, pilih workflow tersimpan dan jadwal. Izinkan notifikasi. UI selalu memerlukan tindakan pengguna dan tidak auto-unlock.
+7. Input manual target: fokuskan kolom draft pada aplikasi yang diizinkan, ketuk bubble, masukkan teks, review target/akun, centang consent lalu **Isi kolom fokus**. SUCCESS hanya setelah nilai field terverifikasi; NOT_FOUND/BLOCKED/UNKNOWN bukan sukses. Jika tidak kompatibel, gunakan Salin/Share manual.
+8. Capture: pilih target yang diizinkan, beri consent aplikasi dan sistem per sesi. Kembali ke Screen Capture/notification untuk preview; jangan berbagi data login/OTP/keuangan. Hapus gambar jika tidak diperlukan. Untuk analisis provider, aktifkan kemampuan Vision pada model yang mendukung gambar, tinjau preview dan consent kedua; request gambar dikirim hanya setelah konfirmasi Anda.
 
-Lihat [arsitektur/status agent](docs/AGENT_ARCHITECTURE.md), [tool policy](docs/TOOL_POLICY.md), [scope](docs/SCOPE_GRANTS.md), [skills](docs/SKILLS.md), [memory](docs/MEMORY.md), [uji v2](docs/EXPERIMENTAL_TEST_MATRIX.md) dan [batas distribusi](docs/PLAY_POLICY_LIMITATIONS.md). V2 penuh belum selesai: multi-app agent, Vision, dynamic AI replanning, event hub dan monetary cost cap masih BLOCKED/NOT_IMPLEMENTED.
+## Build & QA
 
-## Memperoleh APK melalui GitHub Actions
-
-1. Push perubahan source ini ke GitHub (workflow belum dijalankan hanya dengan membuat file lokal).
-2. Buka **Actions → Android Debug APK**, pilih run yang sukses, atau jalankan **Run workflow**.
-3. Di **Artifacts**, unduh **BYGA-Smart-Overlay-debug**, ekstrak ZIP dan ambil `app-debug.apk`.
-4. Transfer ke HP Android, buka APK, izinkan instalasi dari sumber tersebut bila diminta, lalu instal. Debug APK ditandatangani debug key build; update dari runner berbeda mungkin memerlukan uninstall dan menghapus data. Bukan release APK.
-5. Buka BYGA → Mulai. Baca pengungkapan, atur izin **tampil di atas aplikasi**, opsional **Accessibility**, dan **notifikasi**. Beberapa Android/Samsung meminta Allow restricted settings untuk aplikasi sideload; ikuti pengaturan resmi perangkat, jangan bypass proteksi.
-
-## Yang terhubung
-
-- Bubble foreground: drag/dock, tap membuka panel prompt, salin/share, long press/notification Stop, cleanup. Collapsed window hanya 56dp; panel keyboard terbuka hanya setelah tap.
-- Home: prompt lokal, simpan/muat, clipboard/sharesheet, kolom uji Accessibility aman milik BYGA.
-- Apps: launcher ChatGPT/Claude/TikTok/Instagram, Flow via browser dan package tambahan manual.
-- Accounts: profil lokal dengan status UNKNOWN; tidak menyimpan password dan belum dapat memverifikasi akun aktif.
-- Providers: metadata Room, API key AES-GCM Android Keystore, health request teks langsung HTTPS. OpenAI/OpenRouter/Groq/custom kompatibel chat completions, Anthropic Messages, Gemini generateContent. Pilih model yang benar-benar tersedia di akun. Key hanya diisi saat runtime; jangan taruh di CI/repo.
-- Workflows: tambah/edit/hapus/urutkan COPY_TEXT/DELAY/STOP, simpan/muat Room, dry run, review hash versi, run/pause/resume/stop, checkpoint tanpa replay otomatis.
-- Scheduler: pengingat sekali/berulang WorkManager; WAITING_FOR_USER, bukan eksekusi UI background atau janji waktu tepat.
-- Media: SAF image/video picker + caption dari Home, ACTION_SEND dengan URI grants. Unduh HTTPS langsung <=50MB dengan MIME/signature validation ke MediaStore (Android 10+). HANDED_OFF bukan PUBLISHED.
-- Diagnostics: status awal NOT_TESTED dan pencatatan manual terpisah dari test otomatis.
-
-## Build lokal
-
-Prasyarat: JDK **17 lengkap** (`javac` tersedia), Android SDK platform **36**, Build Tools **36.0.0**, lisensi SDK diterima. AGP dapat memasang Build Tools 35 yang menjadi default-nya. Gradle wrapper 8.13 dan checksum disertakan; AGP 8.11.1/Kotlin 2.1.20.
+JDK 17 lengkap, SDK platform 36, Build Tools 36.0.0 (AGP dapat memakai default 35), lisensi SDK diterima. Gradle 8.13/AGP 8.11.1/Kotlin 2.1.20.
 
 ```sh
 export JAVA_HOME=/path/to/jdk-17
 export ANDROID_HOME=/path/to/android-sdk
-# Atau isi sdk.dir pada local.properties (diabaikan Git).
-./gradlew testDebugUnitTest assembleDebug
+./gradlew testDebugUnitTest assembleDebug lintDebug
 ```
 
-Output: `app/build/outputs/apk/debug/app-debug.apk`. Laporan unit test: `app/build/reports/tests/testDebugUnitTest/index.html`.
+Cloud snapshot: `./scripts/cloud-build.sh testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug` mengaktifkan `/workspace/toolchains` dan proxy/CA JVM. TLS/checksum tetap aktif. APK: `app/build/outputs/apk/debug/app-debug.apk`.
 
-Cloud ini mempertahankan JDK/SDK/cache di `/workspace/toolchains`, bukan di Git. Gunakan `scripts/cloud-build.sh` untuk mengaktifkan toolchain dan proxy JVM/CA cloud yang telah diuji. Mesin biasa dan CI tidak perlu proxy cloud tersebut.
+`./gradlew connectedDebugAndroidTest` memerlukan emulator/HP QA, bukan bagian unit test biasa. Storage/Keystore/migration, atomic request-budget dan native UI smoke tests disediakan. UI test menulis screenshot di app external files khusus perangkat uji. Jangan jalankan pada perangkat dengan data produksi tanpa meninjau efek test.
 
-Instrumentation test Room/Keystore tersedia di `app/src/androidTest`; memerlukan emulator/perangkat uji terhubung, tidak dieksekusi hanya dengan unit test:
+Dokumentasi: [rilis Studio](docs/STUDIO_ARCHITECTURE.md), [keamanan/privasi](docs/PRIVACY.md), [status implementasi](docs/IMPLEMENTATION_STATUS.md), [kompatibilitas](docs/COMPATIBILITY.md), [changelog](docs/CHANGELOG.md).
 
-```sh
-./gradlew connectedDebugAndroidTest
-```
+## Preview UI dari kode Compose
 
-## PoC pada HP (Samsung / Android 16)
+Render JVM SDK 35 (Robolectric/native Canvas), bukan screenshot HP Samsung atau bukti kompatibilitas aplikasi lain:
 
-1. Mulai bubble, buka aplikasi target. Verifikasi bubble, drag ke kedua tepi, rotasi, keyboard panel, tap, salin, bagikan dan Stop notifikasi/tahan bubble. Ulangi setelah mencabut izin.
-2. Aktifkan Accessibility secara sadar, kembali Home. Tekan **Test Input** pada layar kolom aman; cek hasil field nyata. Tidak ada aksi pada field ChatGPT/Claude/TikTok/Instagram pada versi ini.
-3. Masukkan teks di Home; uji copy/paste manual dan sharesheet. Pilih media lokal di Media & Social; verifikasi tujuan dan caption. Login/pindah akun secara resmi dan konfirmasi posting sendiri; jangan tandai PUBLISHED dari handoff.
-4. Tambahkan provider/key/model endpoint tepercaya, lalu **Kirim test koneksi** (berpotensi berbiaya). Fake provider tidak memanggil jaringan. Endpoint contoh: OpenAI `https://api.openai.com/v1`, Anthropic `https://api.anthropic.com/v1`, Gemini `https://generativelanguage.googleapis.com/v1beta`, OpenRouter `https://openrouter.ai/api/v1`, Groq `https://api.groq.com/openai/v1`.
-5. Tinjau workflow lokal, setujui, run; uji pause/stop dan edit membatalkan approval. Force-close tidak boleh memicu replay otomatis.
-6. Jadwalkan pengingat, kunci layar, tunggu sesuai OS. Harus menunggu tindakan pengguna dan tidak membuka aplikasi otomatis. Pastikan notification permission/battery policy sesuai perangkat.
-7. Catat hasil manual di Diagnostik. Semua aplikasi target tetap NOT_TESTED sampai memiliki bukti perangkat.
-
-Lihat [arsitektur](docs/ARCHITECTURE.md), [matriks uji](docs/TEST_MATRIX.md), [kompatibilitas](docs/COMPATIBILITY.md), [privasi](docs/PRIVACY.md), dan [prioritas lanjutan](docs/ROADMAP.md).
+<img src="docs/screenshots/studio-home.png" width="340" alt="Render dashboard BYGA Studio dari Compose" />

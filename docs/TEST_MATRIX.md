@@ -1,45 +1,53 @@
-# Matriks bukti uji
+# Bukti uji — Studio 0.4.0
 
-Kategori: `VERIFIED_LOCALLY` = perintah cloud benar-benar dijalankan; `VERIFIED_BY_CI` hanya boleh diisi setelah ada run GitHub sukses; `NEEDS_REAL_DEVICE` = build bukan bukti perilaku HP; `BLOCKED` = aksi belum diizinkan executor; `NOT_IMPLEMENTED` = kode fitur belum tersedia.
+`VERIFIED_LOCALLY`: perintah cloud benar-benar dijalankan. `VERIFIED_BY_CI`: hanya run GitHub sukses terkait SHA. `NEEDS_REAL_DEVICE`: tidak dapat dibuktikan dari build. Hasil emulator berbeda dari HP fisik dan tidak membuktikan kompatibilitas aplikasi lain.
 
-| Pemeriksaan | Bukti / status |
+## Validasi build dan logic
+
+- Perintah: `./scripts/cloud-build.sh testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug`.
+- Suite: legacy workflow/agent/media/provider, runner Studio, durable checkpoint policy, account handoff, request cap, capture/scheduler policy, safe config import/export, dan native Vision payload.
+- APK instrumentation mencakup Room reopen/migration, Keystore roundtrip/delete, atomic budget concurrency serta UI route smoke. Status eksekusi runtime dicatat pada laporan pengiriman setelah command selesai; compiling bukan passing device test.
+- Signature debug APK diperiksa dengan apksigner. Debug signing bukan release signing/Play Store readiness.
+
+## Pemeriksaan yang membutuhkan perangkat
+
+| Fitur | Status penerimaan |
 |---|---|
-| Android unit tests | Baseline v1 VERIFIED_LOCALLY: 28 test, 0 failure/error/skipped (19 workflow guards, 4 fallback AI, 5 media policies) |
-| Debug APK | VERIFIED_LOCALLY: testDebugUnitTest assembleDebug selesai exit 0; bukan bukti instalasi perangkat |
-| Instrumentation APK compile | VERIFIED_LOCALLY: assembleDebugAndroidTest exit 0; v1 Room/Keystore tests belum dieksekusi; v2 menambah migration/memory/codec test |
-| Android Lint | VERIFIED_LOCALLY: lintDebug exit 0, 0 error; peringatan nonblocking tetap ada (style, metadata versi lama/baru, touch accessibility, RTL) |
-| APK signature | VERIFIED_LOCALLY: apksigner verify exit 0, signature v2 valid; instalasi tetap perlu perangkat |
-| GitHub Actions workflow | YAML diparse lokal, test/build dan upload artifact dikonfigurasi; run GitHub belum dilakukan, belum VERIFIED_BY_CI |
-| Permission lifecycle / bubble panel / keyboard / drag / rotation / Stop | NEEDS_REAL_DEVICE |
-| Accessibility test input kolom BYGA | NEEDS_REAL_DEVICE; harus terlihat berubah setelah tombol Test Input |
-| Accessibility click/scroll/app pihak ketiga | BLOCKED; tidak ada kontrol pihak ketiga aktif |
-| Room reopen / Keystore roundtrip-delete | Instrumentation tests tersedia; NEEDS_REAL_DEVICE untuk eksekusi |
-| Clipboard / sharesheet teks dan media URI | NEEDS_REAL_DEVICE |
-| Direct media download HTTPS / MIME / magic bytes / 50MB / MediaStore | Policy unit test VERIFIED_LOCALLY; unduhan nyata dan file galeri NEEDS_REAL_DEVICE |
-| Native download app tujuan | NOT_IMPLEMENTED (manual melalui tombol resmi) |
-| Screenshot / MediaProjection / Vision upload | NOT_IMPLEMENTED; tidak ada capture aktif |
-| Provider HTTP health test | NEEDS_REAL_DEVICE + key/model runtime; tidak ada panggilan provider berbayar dilakukan di cloud |
-| Fake fallback / cancellation / max providers | VERIFIED_LOCALLY melalui mock adapters; bukan bukti kompatibilitas API nyata |
-| Workflow version approval / account guard / retry / locked scheduling policy | VERIFIED_LOCALLY pada pure policy; bukan bukti account detection atau scheduler runtime |
-| Room checkpoint + pause/resume/stop UI | NEEDS_REAL_DEVICE; tidak ada auto-resume setelah process death |
-| WorkManager reminder + locked screen notification | NEEDS_REAL_DEVICE; tidak ada UI execution background, status WAITING_FOR_USER |
-| Account profiles | NEEDS_REAL_DEVICE untuk penyimpanan UI; akun aktif UNKNOWN, publishing BLOCKED |
-| Automated publish/send/delete | NOT_IMPLEMENTED; sharesheet hanya HANDED_OFF, pengguna konfirmasi di aplikasi tujuan |
+| Samsung Android 16 install/permissions/restricted settings | NEEDS_REAL_DEVICE |
+| Robot drag/dock/size/panel/keyboard/rotation/revoke/Stop | NEEDS_REAL_DEVICE |
+| AI inference tiap provider/model/key/fallback/cancel | NEEDS_REAL_DEVICE + akun/kuota; mock protocol tests tersedia |
+| Multi-turn Chat/draft/Prompt Library | Native UI smoke disediakan; end-to-end provider nyata masih NEEDS_REAL_DEVICE |
+| Workflow copy/launch/AI/download/approval/pause/checkpoint | Pure runner/policy tests tersedia; adapter Android end-to-end NEEDS_REAL_DEVICE |
+| Room transaction budget | Instrumentation test tersedia; lihat hasil aktual command perangkat |
+| SAF grant, image/video share ke Instagram/TikTok | NEEDS_REAL_DEVICE; status tidak boleh menjadi PUBLISHED |
+| Fresh account confirmation/mismatch/expiry/import reset | Pure logic verified; akun aktif tetap manual, NEEDS_REAL_DEVICE |
+| Multiple reminders/dependency/Doze/locked notification | NEEDS_REAL_DEVICE; tidak exact-time atau UI execution otomatis |
+| MediaProjection per-session/system denial/keyguard/secure/rotation/cleanup | NEEDS_REAL_DEVICE; no bypass. Unit capture allowlist saja bukan bukti frame |
+| Vision opt-in/second consent/HTTP protocol/cancel | Mock payload tests tersedia; full system capture + model nyata NEEDS_REAL_DEVICE |
+| Agent/skill safe-field test | NEEDS_REAL_DEVICE; pihak ketiga BLOCKED |
+| Memory search/edit/delete/export | Unit/instrumentation fixture tersedia; review UX perangkat diperlukan |
+| Config export/import inert/new IDs/no keys/reset account | Unit tests tersedia; import tidak menjalankan workflow |
 
-## PoC per aplikasi
+## Aplikasi target
 
-| Aplikasi | Overlay | Input/paste manual | Share/download | Switch akun | Posting |
-|---|---|---|---|---|---|
-| ChatGPT | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED |
-| Claude | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED |
-| Google Flow | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED |
-| TikTok | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED |
-| Instagram | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED |
+ChatGPT, Claude, Google Flow, TikTok, Instagram: **NOT_TESTED** pada versi HP pengguna. Tidak ada PASS yang dibuat berdasarkan screenshot referensi, model mock atau GitHub build. Login, switching akun dan publikasi dilakukan manual melalui fitur resmi. Native download automation, arbitrary UI clicks/gestures, multi-app adaptive agent dan AI dynamic replanner umum tetap BLOCKED/NOT_IMPLEMENTED.
 
-Ikuti langkah PoC README, catat model perangkat, Android/One UI dan versi aplikasi, izin, langkah, hasil, serta alasan BLOCKED. Jangan menyertakan key, OTP, password, screenshot pribadi atau data login. Status manual di Diagnostik dimulai NOT_TESTED dan tidak mengubah bukti CI ini.
+## Script penerimaan fisik
 
-Validasi akhir cloud: `./scripts/cloud-build.sh testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug` selesai exit **0**. Script mengaktifkan JDK 17 dan SDK 36 di snapshot ini. Build memakai proxy JVM dan system CA trust; TLS/checksum tetap aktif. GitHub CI dan instalasi perangkat belum dijalankan.
+1. Install, grant/revoke overlay/accessibility/notification. Uji Stop dari toolbar, bubble dan notification saat request/approval berjalan.
+2. Tambah provider/model sesuai akun. Uji teks biasa, HTTP failure, cap, consent/fallback dan cancel. Jangan membagikan key sebagai bukti.
+3. Chat → draft → pilih media/akun → konfirmasi fresh → handoff. Uji account mismatch/expiry; jangan klaim post sukses dari intent.
+4. Simpan workflow, edit membatalkan hash approval. Uji checkpoint selesai/uncertain, pause/stop, app background/locked, approval timeout, import draft tanpa scope.
+5. Jadwal one-time/recurring/dependency: foreground tetap tidak dibuka otomatis; notifikasi/antrean menjelaskan WAITING_FOR_USER.
+6. Capture target yang diizinkan dengan consent baru; tolak consent, rotate, lock dan uji layar terlindungi. Review lalu batalkan/share/Vision dengan consent kedua. Capture tidak boleh dikirim otomatis.
+7. Catat device/OS/app version/operation/results di Diagnostics/Compatibility Lab dengan bukti yang tidak memuat rahasia. P14–P29 pada EXPERIMENTAL_TEST_MATRIX tetap relevan.
 
-Ekstensi v2 dan hasil build terkini tercatat di [EXPERIMENTAL_TEST_MATRIX.md](EXPERIMENTAL_TEST_MATRIX.md) dan [CHANGELOG.md](CHANGELOG.md).
+## Hasil rilis Studio yang diamati
 
-Ekstensi 0.3.0: ProviderTest menambahkan 22 pengujian request/response/model discovery menggunakan mock, sehingga total menjadi 80 unit test. Lihat PROVIDERS.md dan BUBBLE_MASCOT.md. Inference provider berkey nyata dan tampilan/gesture maskot masih NEEDS_REAL_DEVICE.
+- Validasi lokal penuh: **138 tes**, **0 failure/error/skipped** pada suite logic + UI JVM; gerbang command lengkap test/build/instrumentation APK compilation/lint lulus pada iterasi tercatat. Assertion UI JVM meliputi dashboard tampil, navigasi Chat, empty provider state dan Stop terlihat; native Canvas menghasilkan preview. Ini menggunakan Robolectric SDK 35, bukan perangkat Android 16.
+- Enam instrumentation test Android disediakan dan APK test dikompilasi, tetapi **belum dieksekusi**: emulator AOSP API36 tanpa KVM mengalami discovery/PackageManager/storage-system failures sebelum test method berjalan. Upaya direct install menghasilkan NullPointerException StorageManager di PackageInstaller. Itu blocker infrastruktur emulator, bukan PASS dan bukan bukti bug aplikasi. Emulator QA dihentikan setelah diagnosis.
+- Unit/native-schema coverage bertambah untuk ManualInputPermit (8 guard tests). Input pihak ketiga tetap NEEDS_REAL_DEVICE dan hasil harus dicatat per app/versi. Tidak ada klaim target kompatibel hanya dari policy test.
+- Preview `docs/screenshots/studio-home.png` adalah render actual Compose view pada JVM SDK35/native Canvas. Bukan foto atau rekaman HP.
+- Hasil GitHub Actions tersedia pada run SHA pengiriman. Repo tidak memuat API key atau release signing secret; debug APK signature diverifikasi lokal.
+
+Gerbang akhir Studio 0.4.0: `testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug` selesai exit 0 (BUILD SUCCESSFUL). JUnit: 138/138, 0 failure/error/skipped. Lint: 0 error/fatal, 37 warning nonblocking (termasuk dependency updates, KTX/i18n dan accessibility lint); warning tidak diklaim telah seluruhnya dibersihkan. Signature debug APK diverifikasi terpisah.

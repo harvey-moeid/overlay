@@ -1,11 +1,11 @@
-# Prioritas berikutnya
+# Gerbang berikutnya setelah Studio 0.4.0
 
-1. Jalankan PoC Android 16/Samsung: install, permission revoke, drag/panel/keyboard/rotation, stop, test field, sharesheet dan locked reminders. Catat bukti per aplikasi; jangan mengaktifkan otomasi sebelum lulus.
-2. Hardening fondasi: ViewModel/SavedState, resource string Indonesia, account/app models relational, editor selector dan full permission-state tests.
-3. Provider prompt generation UI, fallback/role/budget, adapter contract tests HTTPS, cancellation aktif. Model dan key ditambahkan runtime.
-4. Implement MediaProjection satu sesi dengan FGS mediaProjection dan consent sistem, sanitasi layar sensitif, consent terpisah sebelum upload; jangan rekam kontinu.
-5. Uji downloader HTTPS pada HP dengan file valid, HTML, MIME keliru, oversize, pembatalan, storage penuh, dan MediaStore; kontrol native hanya setelah selector teruji.
-6. Executor DSL deterministik di luar Activity, immutable approvals, durable idempotency/checkpoints, account revalidation, bounded recovery. Click/send/delete/publish tidak boleh blind retry.
-7. Guided switching, draft social handoff, final approval di layar tujuan; dependency/priority scheduler dan safe resume tanpa auto-launch.
+Studio sudah menghubungkan Chat, workflow, capture/Vision berizin, draft sosial, konfirmasi akun dan multi-pengingat. Status rinci terhadap PRD tetap ada di IMPLEMENTATION_STATUS.md; daftar ini bukan klaim fitur yang belum ada sudah selesai.
 
-Produk ini PoC bertahap, bukan implementasi penuh 22 keputusan. PRD asli tetap baseline; fitur belum tersedia harus tetap diberi label, bukan dihapus dari spesifikasi.
+1. Acceptance Android16/Samsung: install/upgrade, permission revoke, drag/panel/keyboard/font besar/rotation/Stop; uji input per field/app, capture/FLAG_SECURE, URI handoff, downloader/storage dan pengingat saat terkunci. Jalankan enam instrumentation tests pada HP atau emulator berakselerasi. Catat versi dan bukti; upaya emulator cloud belum memberi hasil lulus.
+2. Inference QA memakai akun/model yang benar: text, cancellation, fallback/limit concurrency dan Vision masing-masing protocol. Uji quota/gated/rate limit tanpa menulis secrets pada laporan.
+3. Release hardening setelah hasil perangkat: perbaikan yang terbukti diperlukan, localization lengkap, aksesibilitas UI, retention policy, release signing dan distribusi/upgrade yang stabil.
+4. PRD lanjutan yang belum tersedia: branching/macro/selector-backed native downloads, event subscriptions, role routing/monetary cost cap dan dynamic multi-app agent replanning. Perlu desain, batas otorisasi dan bukti per aplikasi sebelum diaktifkan.
+5. Full agent/skill learning lintas aplikasi dan account identity automation memerlukan pekerjaan tersendiri. Input manual Studio tidak memberi wewenang agent untuk click/send/publish/delete. Final posting tetap dilakukan pengguna.
+
+PRD asli tetap baseline dan tidak diubah untuk menutupi gap. Tidak menggunakan angka persentase kesiapan sebagai pengganti acceptance test.

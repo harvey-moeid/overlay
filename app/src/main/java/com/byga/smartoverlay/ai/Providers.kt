@@ -3,6 +3,9 @@ package com.byga.smartoverlay.ai
 import com.byga.smartoverlay.workflow.secureUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import java.io.IOException
+import kotlin.coroutines.resumeWithException
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -47,6 +50,17 @@ internal object ProviderWire {
         }
         return auth(Request.Builder().url(base+path),config.type,secret).post(body.toString().toRequestBody("application/json".toMediaType())).build()
     }
+    fun vision(config: ProviderConfig, secret: String, prompt: String, base64: String, mime: String): Request {
+        require(config.type!=ProviderType.COHERE && base64.isNotBlank() && base64.length<=3_000_000 && mime in setOf("image/jpeg","image/png"))
+        val original=chat(config,secret,prompt)
+        val buffer=okio.Buffer();original.body!!.writeTo(buffer);val body=JSONObject(buffer.readUtf8())
+        when(config.type) {
+            ProviderType.ANTHROPIC -> body.put("messages",JSONArray().put(JSONObject().put("role","user").put("content",JSONArray().put(JSONObject().put("type","image").put("source",JSONObject().put("type","base64").put("media_type",mime).put("data",base64))).put(JSONObject().put("type","text").put("text",prompt)))))
+            ProviderType.GEMINI -> body.put("contents",JSONArray().put(JSONObject().put("parts",JSONArray().put(JSONObject().put("inline_data",JSONObject().put("mime_type",mime).put("data",base64))).put(JSONObject().put("text",prompt)))))
+            else -> body.put("messages",JSONArray().put(JSONObject().put("role","user").put("content",JSONArray().put(JSONObject().put("type","text").put("text",prompt)).put(JSONObject().put("type","image_url").put("image_url",JSONObject().put("url","data:$mime;base64,$base64"))))))
+        }
+        return original.newBuilder().post(body.toString().toRequestBody("application/json".toMediaType())).build()
+    }
     fun models(type: ProviderType, baseUrl: String, secret: String): Request {
         val path=when(type) {
             ProviderType.COHERE -> "/v1/models?endpoint=chat&page_size=1000"
@@ -85,6 +99,15 @@ class HttpProvider(private val config: ProviderConfig, private val secret: Strin
     companion object {
         internal fun defaultClient() = OkHttpClient.Builder().callTimeout(30,TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build()
     }
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private suspend fun execute(request: Request): Response = suspendCancellableCoroutine { continuation ->
+        val call=client.newCall(request)
+        continuation.invokeOnCancellation { call.cancel() }
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { if(!continuation.isCancelled) continuation.resumeWithException(e) }
+            override fun onResponse(call: Call, response: Response) { continuation.resume(response) { response.close() } }
+        })
+    }
     private fun read(response: Response): JSONObject? {
         val source=response.body?.source() ?: return null
         if(source.request(1_048_577)) return null
@@ -93,7 +116,7 @@ class HttpProvider(private val config: ProviderConfig, private val secret: Strin
     override suspend fun text(prompt: String): AiResult = withContext(Dispatchers.IO) {
         if(!ProviderCatalog.validBaseUrl(config.baseUrl) || config.model.isBlank() || secret.isBlank()) return@withContext AiResult.Failure("INVALID_CONFIG")
         try {
-            client.newCall(ProviderWire.chat(config,secret,prompt)).execute().use { response ->
+            execute(ProviderWire.chat(config,secret,prompt)).use { response ->
                 if(!response.isSuccessful) return@withContext AiResult.Failure("HTTP_${response.code}")
                 val json=read(response) ?: return@withContext AiResult.Failure("EMPTY_OR_OVERSIZED_RESPONSE")
                 val text=ProviderWire.text(config.type,json)
@@ -102,10 +125,21 @@ class HttpProvider(private val config: ProviderConfig, private val secret: Strin
         } catch(e: kotlinx.coroutines.CancellationException) { throw e }
         catch(_: Exception) { AiResult.Failure("NETWORK_OR_FORMAT_ERROR") }
     }
+    suspend fun analyze(prompt: String, base64: String, mime: String="image/jpeg"): AiResult = withContext(Dispatchers.IO) {
+        if(!ProviderCatalog.validBaseUrl(config.baseUrl) || secret.isBlank() || config.model.isBlank() || config.type==ProviderType.COHERE) return@withContext AiResult.Failure("VISION_CONFIG_UNSUPPORTED")
+        try {
+            execute(ProviderWire.vision(config,secret,prompt,base64,mime)).use { response ->
+                if(!response.isSuccessful)return@withContext AiResult.Failure("HTTP_${response.code}")
+                val json=read(response)?:return@withContext AiResult.Failure("EMPTY_OR_OVERSIZED_RESPONSE")
+                val text=ProviderWire.text(config.type,json)
+                if(text.isBlank())AiResult.Failure("EMPTY_TEXT")else AiResult.Text(text)
+            }
+        }catch(e:kotlinx.coroutines.CancellationException){throw e}catch(_:Exception){AiResult.Failure("VISION_NETWORK_OR_FORMAT_ERROR")}
+    }
     suspend fun listModels(): ModelListResult = withContext(Dispatchers.IO) {
         if(!ProviderCatalog.validBaseUrl(config.baseUrl) || secret.isBlank()) return@withContext ModelListResult.Failure("HTTPS_ENDPOINT_AND_KEY_REQUIRED")
         try {
-            client.newCall(ProviderWire.models(config.type,config.baseUrl,secret)).execute().use { response ->
+            execute(ProviderWire.models(config.type,config.baseUrl,secret)).use { response ->
                 if(!response.isSuccessful) return@withContext ModelListResult.Failure("HTTP_${response.code}")
                 val json=read(response) ?: return@withContext ModelListResult.Failure("EMPTY_OR_OVERSIZED_RESPONSE")
                 ModelListResult.Models(ProviderWire.modelIds(config.type,json),json.optString("next_page_token").isNotBlank() || json.optString("nextPageToken").isNotBlank() || json.optBoolean("has_more",false))

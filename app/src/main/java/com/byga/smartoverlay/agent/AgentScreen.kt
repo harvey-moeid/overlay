@@ -1,6 +1,7 @@
 package com.byga.smartoverlay.agent
 
 import android.app.KeyguardManager
+import com.byga.smartoverlay.ui.StudioSessions
 import android.os.Build
 import android.os.SystemClock
 import android.widget.EditText
@@ -75,7 +76,7 @@ fun AgentScreen() {
         stop(); runId=UUID.randomUUID().toString(); timeline.clear(); draft=plan; testingSkill=null; accepted=false
         controller.review(plan); status="Draft belum berjalan. Tinjau tool, data dan scope di bawah."
     }
-    DisposableEffect(Unit) { onDispose { controller.stop(); if(AgentSessions.active===controller) AgentSessions.active=null } }
+    DisposableEffect(Unit) { StudioSessions.register("agentLab") { controller.stop(); activeJob?.cancel(); planningJob?.cancel() }; onDispose { StudioSessions.unregister("agentLab"); controller.stop(); if(AgentSessions.active===controller) AgentSessions.active=null } }
     LaunchedEffect(state) {
         val plan=draft ?: return@LaunchedEffect
         if(state in setOf(AgentState.COMPLETED,AgentState.BLOCKED,AgentState.FAILED,AgentState.CANCELLED,AgentState.WAITING_FOR_USER)) {
