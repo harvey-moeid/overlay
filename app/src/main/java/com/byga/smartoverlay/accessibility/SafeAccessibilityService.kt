@@ -1,6 +1,8 @@
 package com.byga.smartoverlay.accessibility
 
 import android.accessibilityservice.AccessibilityService
+import android.provider.Settings
+import com.byga.smartoverlay.agent.Observation
 import android.app.KeyguardManager
 import android.os.Bundle
 import android.os.SystemClock
@@ -40,10 +42,20 @@ class SafeAccessibilityService : AccessibilityService() {
         if (SystemClock.elapsedRealtime() - lastAction < 750) return UiResult.BLOCKED
         val root=safeRoot(pkg) ?: return UiResult.PERMISSION_DENIED
         val list=mutableListOf<AccessibilityNodeInfo>(); nodes(root,list)
-        val node=list.firstOrNull { it.isEditable && it.contentDescription?.toString() == selector && !it.isPassword } ?: return UiResult.NOT_FOUND
+        val node=list.firstOrNull { it.isEditable && it.isEnabled && it.isVisibleToUser && it.contentDescription?.toString() == selector && !it.isPassword } ?: return UiResult.NOT_FOUND
         lastAction=SystemClock.elapsedRealtime()
         val arguments=Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,value.take(4000)) }
         return if (node.performAction(action, arguments)) UiResult.SUCCESS else UiResult.UNKNOWN
+    }
+    fun observeAgent(): Observation {
+        val locked=getSystemService(KeyguardManager::class.java).isKeyguardLocked
+        val root=rootInActiveWindow
+        val pkg=root?.packageName?.toString() ?: ""
+        val allowed=pkg==packageName && !locked
+        val list=mutableListOf<AccessibilityNodeInfo>()
+        if(allowed && root!=null) nodes(root,list)
+        val field=list.firstOrNull { it.isEditable && it.isVisibleToUser && it.contentDescription?.toString()=="byga_safe_input" && !it.isPassword }
+        return Observation(pkg,field?.text?.toString(),SystemClock.elapsedRealtime(),current===this && Settings.canDrawOverlays(this) && field!=null,locked)
     }
     fun performClick(): UiResult = UiResult.BLOCKED
     fun scroll(): UiResult = UiResult.BLOCKED

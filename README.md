@@ -1,8 +1,16 @@
 # BYGA Smart Overlay
 
-PoC Android Kotlin/Compose berbahasa Indonesia, portrait-first, navy/blue/cyan. Semua orkestrasi di HP; tidak ada backend pribadi, root, ADB atau Shizuku untuk penggunaan aplikasi. Baseline 22 keputusan: [PRD asli](docs/PRD.md).
+PoC Android Kotlin/Compose berbahasa Indonesia, portrait-first, navy/blue/cyan. Semua orkestrasi di HP; tidak ada backend pribadi, root, ADB atau Shizuku untuk penggunaan aplikasi. Baseline 22 keputusan: [PRD asli](docs/PRD.md). Ekstensi Experimental Agent: [PRD v2 asli](docs/PRD_v2.md).
 
 **Status:** fondasi Phase 0 dan subset Phase 1–3. Bukan asisten otonom penuh. Kontrol UI pihak ketiga, screenshot/Vision, kontrol native download dan publishing otomatis belum tersedia. Kompatibilitas aplikasi target belum dibuktikan pada HP.
+
+## Experimental Agent v2
+
+Tab **Agent Experimental** menambah draft goal/koreksi, scope per sesi, policy gates, observe→act→verify pada kolom uji BYGA, timeline WIB, pause/resume/stop, skill lifecycle, memory opt-in dan Compatibility Lab. Flag awal **OFF**. Grant tidak diwariskan ke thread/skill/jadwal.
+
+Mulai dari izin overlay + Accessibility, aktifkan flag, buat draft lokal tanpa biaya, tinjau scope lalu jalankan. Agent harus mengisi **kolom uji di layar Agent** dan membaca hasilnya sebelum COMPLETED. Ini belum membuktikan kontrol aplikasi pihak ketiga. Planner provider opsional hanya mengirim goal/koreksi yang diketik setelah Anda menekan tombol; tidak ada capture atau pengiriman UI tree/memory. Jangan tulis rahasia dalam goal.
+
+Lihat [arsitektur/status agent](docs/AGENT_ARCHITECTURE.md), [tool policy](docs/TOOL_POLICY.md), [scope](docs/SCOPE_GRANTS.md), [skills](docs/SKILLS.md), [memory](docs/MEMORY.md), [uji v2](docs/EXPERIMENTAL_TEST_MATRIX.md) dan [batas distribusi](docs/PLAY_POLICY_LIMITATIONS.md). V2 penuh belum selesai: multi-app agent, Vision, dynamic AI replanning, event hub dan monetary cost cap masih BLOCKED/NOT_IMPLEMENTED.
 
 ## Memperoleh APK melalui GitHub Actions
 

@@ -1,6 +1,7 @@
 package com.byga.smartoverlay.data
 
 import android.content.Context
+import com.byga.smartoverlay.agent.*
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -23,13 +24,14 @@ data class Record(val kind: String, val id: String, val body: String, val update
     @Query("DELETE FROM records WHERE kind = :kind AND id = :id") suspend fun delete(kind: String, id: String)
     @Query("DELETE FROM records WHERE kind IN ('diagnostic', 'execution', 'prompt')") suspend fun clearHistory()
 }
-@Database(entities=[Record::class], version=1, exportSchema=true)
+@Database(entities=[Record::class, AgentTaskRow::class, MemoryEntry::class, SkillRow::class, CompatibilityRow::class], version=2, exportSchema=true)
 abstract class BygaDatabase : RoomDatabase() {
     abstract fun records(): Records
+    abstract fun agent(): AgentRecords
     companion object {
         @Volatile private var instance: BygaDatabase? = null
         fun get(context: Context): BygaDatabase = instance ?: synchronized(this) {
-            instance ?: Room.databaseBuilder(context.applicationContext, BygaDatabase::class.java, "byga.db").build().also { instance = it }
+            instance ?: Room.databaseBuilder(context.applicationContext, BygaDatabase::class.java, "byga.db").addMigrations(AGENT_MIGRATION_1_2).build().also { instance = it }
         }
     }
 }

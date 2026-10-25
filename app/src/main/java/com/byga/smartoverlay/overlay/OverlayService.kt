@@ -1,6 +1,7 @@
 package com.byga.smartoverlay.overlay
 
 import android.animation.ValueAnimator
+import com.byga.smartoverlay.agent.AgentSessions
 import android.app.*
 import android.content.Intent
 import android.content.res.Configuration
@@ -34,7 +35,7 @@ class OverlayService : Service() {
     private val size get() = (56 * resources.displayMetrics.density).toInt()
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == "STOP" || !Settings.canDrawOverlays(this)) { stopSelf(); return START_NOT_STICKY }
+        if (intent?.action == "STOP" || !Settings.canDrawOverlays(this)) { AgentSessions.stopAll(); stopSelf(); return START_NOT_STICKY }
         val manager=getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel("bubble","Bubble aktif",NotificationManager.IMPORTANCE_LOW))
         val open=PendingIntent.getActivity(this,0,Intent(this,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -57,7 +58,7 @@ class OverlayService : Service() {
             override fun onSingleTapUp(e: android.view.MotionEvent): Boolean {
                 togglePanel(); return true
             }
-            override fun onLongPress(e: android.view.MotionEvent) { stopSelf() }
+            override fun onLongPress(e: android.view.MotionEvent) { AgentSessions.stopAll(); stopSelf() }
         })
         var startX=0; var startY=0; var touchX=0f; var touchY=0f; var dragged=false
         view.setOnTouchListener { _, event ->
@@ -84,7 +85,7 @@ class OverlayService : Service() {
         button("Bagikan teks") { runCatching { Handoffs.share(this,input.text.toString()) } }
         button("Panel utama") { togglePanel(); startActivity(Intent(this,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)) }
         button("Tutup panel") { togglePanel() }
-        button("STOP bubble") { stopSelf() }
+        button("STOP bubble & agent") { AgentSessions.stopAll(); stopSelf() }
         val width=(300*resources.displayMetrics.density).toInt().coerceAtMost(resources.displayMetrics.widthPixels)
         val p=WindowManager.LayoutParams(width,WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,0,PixelFormat.TRANSLUCENT).apply {
             gravity=Gravity.TOP or Gravity.CENTER_HORIZONTAL; y=64; softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE

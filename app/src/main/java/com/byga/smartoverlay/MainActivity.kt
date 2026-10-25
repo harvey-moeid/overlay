@@ -1,6 +1,8 @@
 package com.byga.smartoverlay
 
 import android.Manifest
+import com.byga.smartoverlay.agent.AgentScreen
+import com.byga.smartoverlay.agent.AgentSessions
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -81,7 +83,7 @@ class MainActivity : ComponentActivity() {
         var paused by remember { mutableStateOf(false) }
         val plan=Plan(name,steps)
         fun savePlan() { val payload=JSONObject().put("name",name).put("steps",JSONArray().apply { steps.forEach { put(JSONObject().put("action",it.action.name).put("value",it.value)) } }); scope.launch { dao.save(Record("workflow","local-draft",payload.toString())) } }
-        fun stop() { job?.cancel(); job=null; runState=RunState.STOPPED; paused=false; stopService(Intent(this,OverlayService::class.java)); scope.launch { dao.save(Record("execution","local-draft","STOPPED • checkpoint $activeStep")) } }
+        fun stop() { AgentSessions.stopAll(); job?.cancel(); job=null; runState=RunState.STOPPED; paused=false; stopService(Intent(this,OverlayService::class.java)); scope.launch { dao.save(Record("execution","local-draft","STOPPED • checkpoint $activeStep")) } }
         fun startPlan() {
             if(job?.isActive==true) return
             if(!Guard.canRun(plan,approval)) { message="Tinjau dan setujui versi workflow ini dahulu"; return }
@@ -116,7 +118,7 @@ class MainActivity : ComponentActivity() {
                     Text("SMART OVERLAY   /   LOCAL FIRST",style=MaterialTheme.typography.labelMedium)
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                        listOf("Mulai","Home","Monitor","Apps","Accounts","AI Providers","Workflows","Scheduler","Media & Social","Diagnostik","Settings").forEach { label -> FilterChip(selected=tab==label,onClick={tab=label},label={Text(label)}) }
+                        listOf("Mulai","Home","Agent Experimental","Monitor","Apps","Accounts","AI Providers","Workflows","Scheduler","Media & Social","Diagnostik","Settings").forEach { label -> FilterChip(selected=tab==label,onClick={tab=label},label={Text(label)}) }
                     }
                     Card(Modifier.fillMaxWidth().padding(vertical=10.dp)) { Text(message,Modifier.padding(12.dp),style=MaterialTheme.typography.bodySmall) }
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)) {
@@ -132,6 +134,7 @@ class MainActivity : ComponentActivity() {
                                 Button(onClick={if(Build.VERSION.SDK_INT>=33) notifications.launch(Manifest.permission.POST_NOTIFICATIONS) else message="Notifikasi tidak perlu runtime permission"}) { Text("Izin notifikasi") }
                                 Button(onClick={ if(overlay) { ContextCompat.startForegroundService(this@MainActivity,Intent(this@MainActivity,OverlayService::class.java)); message="Bubble diminta; verifikasi tampil di HP" } else message="Berikan izin overlay terlebih dahulu" }) { Text("Mulai bubble") }
                             }
+                            "Agent Experimental" -> { AgentScreen() }
                             "Home" -> {
                                 Text("Panel prompt",style=MaterialTheme.typography.headlineSmall)
                                 OutlinedTextField(prompt,{prompt=it},label={Text("Teks / prompt")},modifier=Modifier.fillMaxWidth(),minLines=3)

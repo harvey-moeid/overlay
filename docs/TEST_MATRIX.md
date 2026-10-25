@@ -4,9 +4,9 @@ Kategori: `VERIFIED_LOCALLY` = perintah cloud benar-benar dijalankan; `VERIFIED_
 
 | Pemeriksaan | Bukti / status |
 |---|---|
-| Android unit tests | VERIFIED_LOCALLY: 28 test, 0 failure/error/skipped (19 workflow guards, 4 fallback AI, 5 media policies) |
+| Android unit tests | Baseline v1 VERIFIED_LOCALLY: 28 test, 0 failure/error/skipped (19 workflow guards, 4 fallback AI, 5 media policies) |
 | Debug APK | VERIFIED_LOCALLY: testDebugUnitTest assembleDebug selesai exit 0; bukan bukti instalasi perangkat |
-| Instrumentation APK compile | VERIFIED_LOCALLY: assembleDebugAndroidTest exit 0; 2 tests Room/Keystore belum dieksekusi |
+| Instrumentation APK compile | VERIFIED_LOCALLY: assembleDebugAndroidTest exit 0; v1 Room/Keystore tests belum dieksekusi; v2 menambah migration/memory/codec test |
 | Android Lint | VERIFIED_LOCALLY: lintDebug exit 0, 0 error; peringatan nonblocking tetap ada (style, metadata versi lama/baru, touch accessibility, RTL) |
 | APK signature | VERIFIED_LOCALLY: apksigner verify exit 0, signature v2 valid; instalasi tetap perlu perangkat |
 | GitHub Actions workflow | YAML diparse lokal, test/build dan upload artifact dikonfigurasi; run GitHub belum dilakukan, belum VERIFIED_BY_CI |
@@ -39,3 +39,5 @@ Kategori: `VERIFIED_LOCALLY` = perintah cloud benar-benar dijalankan; `VERIFIED_
 Ikuti langkah PoC README, catat model perangkat, Android/One UI dan versi aplikasi, izin, langkah, hasil, serta alasan BLOCKED. Jangan menyertakan key, OTP, password, screenshot pribadi atau data login. Status manual di Diagnostik dimulai NOT_TESTED dan tidak mengubah bukti CI ini.
 
 Validasi akhir cloud: `./scripts/cloud-build.sh testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug` selesai exit **0**. Script mengaktifkan JDK 17 dan SDK 36 di snapshot ini. Build memakai proxy JVM dan system CA trust; TLS/checksum tetap aktif. GitHub CI dan instalasi perangkat belum dijalankan.
+
+Ekstensi v2 dan hasil build terkini tercatat di [EXPERIMENTAL_TEST_MATRIX.md](EXPERIMENTAL_TEST_MATRIX.md) dan [CHANGELOG.md](CHANGELOG.md).

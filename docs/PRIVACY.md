@@ -9,3 +9,5 @@ Health test provider mengirim prompt pendek ke endpoint HTTPS yang pengguna simp
 Sharesheet mengirim media/prompt yang dipilih ke aplikasi pilihan pengguna. Pastikan akun tujuan sendiri sebelum posting; handoff tidak berarti publikasi. Riwayat/prompt/diagnostik dapat dihapus melalui Settings; provider dapat dihapus beserta key. Hapus data aplikasi untuk menghapus semua profil/workflow/preferensi lokal.
 
 Tidak ada bypass FLAG_SECURE, lock screen, password, OTP, autentikasi atau DRM. Tidak ada clone account, auto-login, silent post, tracking atau backend pribadi. Audit kebijakan Accessibility wajib sebelum rencana distribusi Play Store.
+
+V2: Agent OFF saat instalasi. Scope sementara hanya untuk safe field BYGA, dicabut saat stop/disposal. Tujuan/koreksi pengguna disimpan sebagai task history; memori jangka panjang hanya melalui consent manual. Keduanya dapat dihapus pada tab agent masing-masing. Planner provider hanya menerima goal/koreksi pada tap eksplisit; tidak menerima screenshot/UI tree/memori otomatis. Lihat MEMORY.md dan SCOPE_GRANTS.md.
