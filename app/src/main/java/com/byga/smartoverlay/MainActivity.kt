@@ -1,6 +1,7 @@
 package com.byga.smartoverlay
 
 import android.Manifest
+import com.byga.smartoverlay.ui.MascotSettings
 import com.byga.smartoverlay.agent.AgentScreen
 import com.byga.smartoverlay.agent.AgentSessions
 import android.content.Intent
@@ -176,20 +177,13 @@ class MainActivity : ComponentActivity() {
                             }
                             "AI Providers" -> {
                                 Text("Provider AI • Experimental",style=MaterialTheme.typography.headlineSmall)
-                                Text("Permintaan teks langsung dari HP. Kunci dienkripsi Android Keystore. Model diisi sesuai akun provider Anda. Vision, role routing, budget cap belum tersedia.")
-                                var type by remember { mutableStateOf(ProviderType.OPENAI) }
-                                Row(Modifier.horizontalScroll(rememberScrollState())) { ProviderType.entries.forEach { t -> FilterChip(type==t,{type=t},label={Text(t.name)}) } }
-                                var endpoint by remember { mutableStateOf("https://api.openai.com/v1") }
-                                var model by remember { mutableStateOf("") }; var key by remember { mutableStateOf("") }
-                                OutlinedTextField(endpoint,{endpoint=it},label={Text("Base URL HTTPS (termasuk /v1 bila perlu)")},modifier=Modifier.fillMaxWidth())
-                                OutlinedTextField(model,{model=it},label={Text("ID model")})
-                                OutlinedTextField(key,{key=it},label={Text("API key")},visualTransformation=PasswordVisualTransformation())
-                                Button(onClick={if(!secureUrl(endpoint)||model.isBlank()||key.isBlank()) message="Endpoint HTTPS, model dan key wajib" else scope.launch { val id=java.util.UUID.randomUUID().toString(); try { secrets.save(id,key); val body=JSONObject().put("type",type.name).put("url",endpoint).put("model",model); dao.save(Record("provider",id,body.toString())); key=""; message="Provider disimpan; key tidak ditampilkan" } catch(_: Exception) { message="Gagal menyimpan provider; periksa Keystore" } }}) { Text("Simpan terenkripsi") }
+                                Text("Permintaan teks langsung dari HP. Kunci dienkripsi Android Keystore. Pilih model dari daftar saran/API atau isi ID sesuai akun Anda. Vision, role routing, budget cap belum tersedia.")
+                                ProviderEditor { message=it }
                                 Text("Test koneksi mengirim teks 'Balas singkat: OK' ke endpoint yang Anda simpan dan dapat dikenakan biaya.")
                                 providers.forEach { record ->
                                     val json=JSONObject(record.body)
                                     Card { Column(Modifier.padding(12.dp)) {
-                                        Text("${json.getString("type")} • ${json.getString("model")} • key ••••••")
+                                        Text("${ProviderCatalog.get(ProviderType.valueOf(json.getString("type"))).label} • ${json.getString("model")} • key ••••••")
                                         Button(onClick={scope.launch { message="Menguji provider…"; val result=try { HttpProvider(ProviderConfig(record.id,ProviderType.valueOf(json.getString("type")),json.getString("url"),json.getString("model")),secrets.read(record.id) ?: "").text("Balas singkat: OK") } catch(_: Exception) { AiResult.Failure("KEY_UNAVAILABLE") }; message=when(result) { is AiResult.Text -> "Respons provider diterima"; is AiResult.Failure -> result.code } }}) { Text("Kirim test koneksi") }
                                         TextButton(onClick={scope.launch { dao.delete("provider",record.id); secrets.delete(record.id) }}) { Text("Hapus") }
                                     } }
@@ -247,6 +241,7 @@ class MainActivity : ComponentActivity() {
                             }
                             "Settings" -> {
                                 Text("Privasi & kontrol",style=MaterialTheme.typography.headlineSmall)
+                                MascotSettings()
                                 Text("Tidak ada analytics/backend. API key dienkripsi, tidak dibackup. Perangkat yang telah dikompromikan tetap berisiko. Tidak ada capture layar aktif. Accessibility pihak ketiga dinonaktifkan pada PoC.")
                                 Row { Checkbox(reduced,{value -> scope.launch { settings.edit { it[booleanPreferencesKey("reduced_motion")]=value } }}); Text("Kurangi gerak bubble") }
                                 Text("Pengaturan ini menonaktifkan animasi dock bubble. Durasi animator sistem juga dihormati.")

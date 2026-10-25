@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0-mascot-providers — 25 Oktober 2026
+
+### IMPLEMENTED
+- Bubble robot biru terminal RGBA transparan, mengganti huruf B. Drag/dock/panel/Stop dipertahankan, ukuran 56–96dp dengan preview Settings dan DataStore. Click/long-click memakai aksi view aksesibel; tidak ada idle animation loop.
+- Tambahan Cohere Chat v2, Hugging Face Inference Providers, Mistral dan NVIDIA NIM; semua provider lama dipertahankan. Adapter Cohere native, tiga provider baru lainnya OpenAI-compatible.
+- Pemilih provider yang terlihat seluruhnya, model suggestions + filter/dropdown/manual ID, authenticated model discovery on-demand, label pagination/akses, key dibersihkan saat pindah provider. Respons discovery dari key/provider lama tidak diterapkan ke pilihan baru.
+- Model/catalog/http protocol tests menggunakan respons mock dan fake key, termasuk Cohere payload/parser, paths/auth, HF routing ID, model filtering/pagination, errors, empty/oversized response dan tanpa retry/redirect.
+
+### VALIDATION / LIMITS
+80 unit tests (22 tes provider baru + 58 sebelumnya). Perintah validasi: `./scripts/cloud-build.sh testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug`. Validasi lokal selesai exit 0; Android Lint tanpa error, signature APK valid. Status CI disertakan dalam laporan pengiriman; tests perangkat/instrumentation tidak diklaim dijalankan.
+
+Katalog publik HF/NIM dan SDK/docs resmi dipakai untuk verifikasi kontrak, bukan inference berbayar. Ketersediaan model, kuota/kredit, izin gated model dan tampilan maskot/gesture di HP masih NOT_TESTED. Saran model tidak menjamin akses akun. Tidak ada peningkatan scope agent atau izin Android baru. Referensi: PROVIDERS.md dan BUBBLE_MASCOT.md.
+
 ## 0.2.0-experimental — 25 Oktober 2026
 
 ### IMPLEMENTED (kode + build, bukan bukti perangkat)

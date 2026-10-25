@@ -12,7 +12,9 @@ import android.os.IBinder
 import android.provider.Settings
 import android.view.*
 import android.view.animation.OvershootInterpolator
-import android.widget.TextView
+import android.widget.ImageView
+import com.byga.smartoverlay.R
+import androidx.datastore.preferences.core.intPreferencesKey
 import android.widget.LinearLayout
 import android.widget.EditText
 import android.widget.Button
@@ -26,13 +28,21 @@ import com.byga.smartoverlay.MainActivity
 class OverlayService : Service() {
     private val serviceScope=CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
     private var reducedMotion=false
-    override fun onCreate() { super.onCreate(); serviceScope.launch { settings.data.collect { reducedMotion=it[booleanPreferencesKey("reduced_motion")] ?: false } } }
+    override fun onCreate() {
+        super.onCreate()
+        serviceScope.launch { settings.data.collect {
+            reducedMotion=it[booleanPreferencesKey("reduced_motion")] ?: false
+            bubbleSizeDp=(it[intPreferencesKey("bubble_size_dp")] ?: 72).coerceIn(56,96)
+            if(bubble!=null) { params.width=size; params.height=size; clamp(); update() }
+        } }
+    }
     private lateinit var wm: WindowManager
-    private var bubble: TextView? = null
+    private var bubble: ImageView? = null
     private var panel: LinearLayout? = null
     private var animator: ValueAnimator? = null
     private lateinit var params: WindowManager.LayoutParams
-    private val size get() = (56 * resources.displayMetrics.density).toInt()
+    private var bubbleSizeDp=72
+    private val size get() = (bubbleSizeDp * resources.displayMetrics.density).toInt()
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "STOP" || !Settings.canDrawOverlays(this)) { AgentSessions.stopAll(); stopSelf(); return START_NOT_STICKY }
@@ -48,32 +58,39 @@ class OverlayService : Service() {
     private fun show() {
         wm=getSystemService(WindowManager::class.java)
         params=WindowManager.LayoutParams(size,size,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,PixelFormat.TRANSLUCENT).apply { gravity=Gravity.TOP or Gravity.LEFT; x=0; y=200 }
-        val view=TextView(this).apply {
-            text="B"; textSize=24f; gravity=Gravity.CENTER; setTextColor(Color.WHITE); contentDescription="BYGA: ketuk buka panel, tahan untuk stop"
-            background=GradientDrawable().apply { shape=GradientDrawable.OVAL; setColor(Color.rgb(8,13,25)); setStroke(3,Color.rgb(36,107,253)) }
-            elevation=12f
+        val view=object : ImageView(this) {
+            override fun performClick(): Boolean { super.performClick(); togglePanel(); return true }
+            override fun performLongClick(): Boolean { AgentSessions.stopAll(); stopSelf(); return true }
+        }.apply {
+            setImageResource(R.drawable.byga_robot)
+            scaleType=ImageView.ScaleType.FIT_CENTER
+            contentDescription="Robot BYGA: ketuk buka panel, tahan untuk stop, geser untuk pindah"
+            isFocusable=true
+            isClickable=true
+            isLongClickable=true
         }
+        var longPressed=false
         val detector=GestureDetector(this,object: GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: android.view.MotionEvent) = true
-            override fun onSingleTapUp(e: android.view.MotionEvent): Boolean {
-                togglePanel(); return true
-            }
-            override fun onLongPress(e: android.view.MotionEvent) { AgentSessions.stopAll(); stopSelf() }
+            override fun onSingleTapUp(e: android.view.MotionEvent) = true
+            override fun onLongPress(e: android.view.MotionEvent) { longPressed=true; view.performLongClick() }
         })
         var startX=0; var startY=0; var touchX=0f; var touchY=0f; var dragged=false
         view.setOnTouchListener { _, event ->
             when(event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { animator?.cancel(); startX=params.x; startY=params.y; touchX=event.rawX; touchY=event.rawY; dragged=false; detector.onTouchEvent(event) }
+                MotionEvent.ACTION_DOWN -> { animator?.cancel(); startX=params.x; startY=params.y; touchX=event.rawX; touchY=event.rawY; dragged=false; longPressed=false; detector.onTouchEvent(event) }
                 MotionEvent.ACTION_MOVE -> {
                     detector.onTouchEvent(event)
                     if (kotlin.math.abs(event.rawX-touchX)+kotlin.math.abs(event.rawY-touchY)>12) dragged=true
                     if (dragged) { params.x=(startX+event.rawX-touchX).toInt(); params.y=(startY+event.rawY-touchY).toInt(); clamp(); update() }
                 }
-                MotionEvent.ACTION_UP -> { if (!dragged) detector.onTouchEvent(event); dock() }
+                MotionEvent.ACTION_UP -> { detector.onTouchEvent(event); if(!dragged && !longPressed) view.performClick(); if(!longPressed) dock() }
                 MotionEvent.ACTION_CANCEL -> dock()
             }; true
         }
-        try { wm.addView(view,params); bubble=view } catch (_: Exception) { stopSelf() }
+        try { wm.addView(view,params); bubble=view
+            if(!reducedMotion) { view.scaleX=0.82f; view.scaleY=0.82f; view.animate().scaleX(1f).scaleY(1f).setDuration(300).setInterpolator(OvershootInterpolator(0.8f)).start() }
+        } catch (_: Exception) { stopSelf() }
     }
     private fun togglePanel() {
         panel?.let { runCatching { wm.removeView(it) }; panel=null; return }
@@ -103,5 +120,5 @@ class OverlayService : Service() {
         animator=ValueAnimator.ofInt(params.x,target).apply { duration=if(reducedMotion) 0 else 280; interpolator=OvershootInterpolator(0.6f); addUpdateListener { params.x=it.animatedValue as Int; clamp(); update() }; start() }
     }
     override fun onConfigurationChanged(newConfig: Configuration) { super.onConfigurationChanged(newConfig); panel?.let { togglePanel() }; if(bubble!=null) { clamp(); update() } }
-    override fun onDestroy() { serviceScope.cancel(); panel?.let { runCatching { wm.removeView(it) } }; panel=null; animator?.cancel(); bubble?.let { runCatching { wm.removeView(it) } }; bubble=null; stopForeground(STOP_FOREGROUND_REMOVE); super.onDestroy() }
+    override fun onDestroy() { serviceScope.cancel(); panel?.let { runCatching { wm.removeView(it) } }; panel=null; animator?.cancel(); bubble?.let { it.animate().cancel(); runCatching { wm.removeView(it) } }; bubble=null; stopForeground(STOP_FOREGROUND_REMOVE); super.onDestroy() }
 }

@@ -7,7 +7,7 @@ plugins {
 android {
     namespace = "com.byga.smartoverlay"
     compileSdk = 36
-    defaultConfig { applicationId = "com.byga.smartoverlay"; minSdk = 28; targetSdk = 36; versionCode = 2; versionName = "0.2.0-experimental"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+    defaultConfig { applicationId = "com.byga.smartoverlay"; minSdk = 28; targetSdk = 36; versionCode = 3; versionName = "0.3.0-mascot-providers"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
     buildFeatures { compose = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
@@ -30,6 +30,7 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.room:room-testing:2.7.1")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }

@@ -41,3 +41,5 @@ Ikuti langkah PoC README, catat model perangkat, Android/One UI dan versi aplika
 Validasi akhir cloud: `./scripts/cloud-build.sh testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug` selesai exit **0**. Script mengaktifkan JDK 17 dan SDK 36 di snapshot ini. Build memakai proxy JVM dan system CA trust; TLS/checksum tetap aktif. GitHub CI dan instalasi perangkat belum dijalankan.
 
 Ekstensi v2 dan hasil build terkini tercatat di [EXPERIMENTAL_TEST_MATRIX.md](EXPERIMENTAL_TEST_MATRIX.md) dan [CHANGELOG.md](CHANGELOG.md).
+
+Ekstensi 0.3.0: ProviderTest menambahkan 22 pengujian request/response/model discovery menggunakan mock, sehingga total menjadi 80 unit test. Lihat PROVIDERS.md dan BUBBLE_MASCOT.md. Inference provider berkey nyata dan tampilan/gesture maskot masih NEEDS_REAL_DEVICE.

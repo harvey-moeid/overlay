@@ -4,6 +4,12 @@ PoC Android Kotlin/Compose berbahasa Indonesia, portrait-first, navy/blue/cyan. 
 
 **Status:** fondasi Phase 0 dan subset Phase 1–3. Bukan asisten otonom penuh. Kontrol UI pihak ketiga, screenshot/Vision, kontrol native download dan publishing otomatis belum tersedia. Kompatibilitas aplikasi target belum dibuktikan pada HP.
 
+## Robot bubble & provider baru (0.3.0)
+
+Bubble kini berupa maskot robot biru transparan seperti arah referensi. Settings → **Robot bubble BYGA** menampilkan preview dan ukuran 56–96dp (default 72dp). Drag/dock, panel prompt dan Stop tetap tersedia.
+
+AI Providers menambahkan **Cohere, Hugging Face, Mistral, NVIDIA NIM**. Pilih provider → isi key → pilih model saran atau **Ambil model dari API** → Simpan → Test koneksi. Pilihan manual tetap tersedia; kuota/akses model mengikuti akun. Lihat [panduan provider/model](docs/PROVIDERS.md) dan [bubble mascot](docs/BUBBLE_MASCOT.md).
+
 ## Experimental Agent v2
 
 Tab **Agent Experimental** menambah draft goal/koreksi, scope per sesi, policy gates, observe→act→verify pada kolom uji BYGA, timeline WIB, pause/resume/stop, skill lifecycle, memory opt-in dan Compatibility Lab. Flag awal **OFF**. Grant tidak diwariskan ke thread/skill/jadwal.
