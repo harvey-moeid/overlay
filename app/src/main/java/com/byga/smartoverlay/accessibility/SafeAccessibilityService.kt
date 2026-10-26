@@ -1,5 +1,7 @@
 package com.byga.smartoverlay.accessibility
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
 import android.accessibilityservice.AccessibilityService
 import android.provider.Settings
 import com.byga.smartoverlay.agent.Observation
@@ -16,6 +18,12 @@ class SafeAccessibilityService : AccessibilityService() {
     companion object { @Volatile var current: SafeAccessibilityService? = null; private set }
     val mapping by lazy { com.byga.smartoverlay.mapping.MappingAccessibility(this) }
     private var lastAction = 0L
+    private lateinit var budget: ScanBudget
+    private suspend fun <T> scan(block: () -> T): T = AccessibilityWork.run {
+        budget=ScanBudget(currentCoroutineContext())
+        budget.check()
+        block()
+    }
     override fun onServiceConnected() { current = this }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) { if(event?.eventType==AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)mapping.screenChanged(event.packageName?.toString().orEmpty(),event.className?.toString().orEmpty()) }
     override fun onInterrupt() { current = null }
@@ -28,17 +36,20 @@ class SafeAccessibilityService : AccessibilityService() {
         return root
     }
     private fun nodes(node: AccessibilityNodeInfo, output: MutableList<AccessibilityNodeInfo>) {
+        budget.check()
         if (output.size >= 200 || node.isPassword) return
         output.add(node)
-        for (i in 0 until node.childCount) node.getChild(i)?.let { nodes(it, output) }
+        for (i in 0 until minOf(node.childCount,200)) { if(output.size>=200)break;budget.check();node.getChild(i)?.let { nodes(it, output) } }
     }
-    fun readAccessibleNodes(pkg: String): List<NodeSummary> {
+    suspend fun readAccessibleNodes(pkg: String): List<NodeSummary> = scan { readAccessibleNodesBlocking(pkg) }
+    private fun readAccessibleNodesBlocking(pkg: String): List<NodeSummary> {
         val root=safeRoot(pkg) ?: return emptyList()
         val list=mutableListOf<AccessibilityNodeInfo>(); nodes(root,list)
         return list.map { NodeSummary(it.viewIdResourceName,it.isEditable,it.isClickable) }
     }
-    fun testInput(value: String): UiResult = act(packageName,"byga_safe_input",AccessibilityNodeInfo.ACTION_SET_TEXT,value)
-    fun act(pkg: String, selector: String, action: Int, value: String = ""): UiResult {
+    suspend fun testInput(value: String): UiResult = act(packageName,"byga_safe_input",AccessibilityNodeInfo.ACTION_SET_TEXT,value)
+    suspend fun act(pkg: String, selector: String, action: Int, value: String = ""): UiResult = scan { actBlocking(pkg,selector,action,value) }
+    private fun actBlocking(pkg: String, selector: String, action: Int, value: String = ""): UiResult {
         if (selector != "byga_safe_input" || action != AccessibilityNodeInfo.ACTION_SET_TEXT) return UiResult.BLOCKED
         if (SystemClock.elapsedRealtime() - lastAction < 750) return UiResult.BLOCKED
         val root=safeRoot(pkg) ?: return UiResult.PERMISSION_DENIED
@@ -46,9 +57,11 @@ class SafeAccessibilityService : AccessibilityService() {
         val node=list.firstOrNull { it.isEditable && it.isEnabled && it.isVisibleToUser && it.contentDescription?.toString() == selector && !it.isPassword } ?: return UiResult.NOT_FOUND
         lastAction=SystemClock.elapsedRealtime()
         val arguments=Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,value.take(4000)) }
+        budget.check()
         return if (node.performAction(action, arguments)) UiResult.SUCCESS else UiResult.UNKNOWN
     }
-    fun observeAgent(): Observation {
+    suspend fun observeAgent(): Observation = scan { observeAgentBlocking() }
+    private fun observeAgentBlocking(): Observation {
         val locked=getSystemService(KeyguardManager::class.java).isKeyguardLocked
         val root=rootInActiveWindow
         val pkg=root?.packageName?.toString() ?: ""
@@ -58,9 +71,11 @@ class SafeAccessibilityService : AccessibilityService() {
         val field=list.firstOrNull { it.isEditable && it.isVisibleToUser && it.contentDescription?.toString()=="byga_safe_input" && !it.isPassword }
         return Observation(pkg,field?.text?.toString(),SystemClock.elapsedRealtime(),current===this && Settings.canDrawOverlays(this) && field!=null,locked)
     }
-    fun foregroundPackage():String = if(getSystemService(KeyguardManager::class.java).isKeyguardLocked) "" else rootInActiveWindow?.packageName?.toString() ?: ""
+    suspend fun foregroundPackage(): String = scan { foregroundPackageBlocking() }
+    private fun foregroundPackageBlocking():String = if(getSystemService(KeyguardManager::class.java).isKeyguardLocked) "" else rootInActiveWindow?.packageName?.toString() ?: ""
     private fun fingerprint(node:AccessibilityNodeInfo)="${node.windowId}:${node.hashCode()}:${node.viewIdResourceName}:${node.className}:${node.inputType}"
-    fun focusedFieldFingerprint(target:String):String {
+    suspend fun focusedFieldFingerprint(target:String): String = scan { focusedFieldFingerprintBlocking(target) }
+    private fun focusedFieldFingerprintBlocking(target:String):String {
         if(target !in ManualInputPermit.packages)return ""
         val root=rootInActiveWindow ?: return ""
         if(root.packageName?.toString()!=target)return ""
@@ -68,13 +83,15 @@ class SafeAccessibilityService : AccessibilityService() {
         if(!field.isEditable || field.isPassword || !field.isVisibleToUser)return ""
         return fingerprint(field)
     }
-    fun applyReviewedInput(permit:ManualInputPermit):UiResult {
+    suspend fun applyReviewedInput(permit:ManualInputPermit): UiResult = scan { applyReviewedInputBlocking(permit) }
+    private fun applyReviewedInputBlocking(permit:ManualInputPermit):UiResult {
         val root=rootInActiveWindow ?: return UiResult.NOT_FOUND
         val active=root.packageName?.toString() ?: return UiResult.BLOCKED
         val locked=getSystemService(KeyguardManager::class.java).isKeyguardLocked
         if(active !in ManualInputPermit.packages || locked)return UiResult.BLOCKED
         val queue=java.util.ArrayDeque<AccessibilityNodeInfo>();queue.add(root);var count=0;var sensitive=false
         while(queue.isNotEmpty() && count++<400){
+            budget.check()
             val node=queue.removeFirst()
             if(node.isPassword){sensitive=true;break}
             val description=(node.contentDescription?.toString()?:"")+" "+(node.text?.toString()?:"")
@@ -89,17 +106,20 @@ class SafeAccessibilityService : AccessibilityService() {
         if(field.actionList.none{it.id==AccessibilityNodeInfo.ACTION_SET_TEXT})return UiResult.BLOCKED
         lastAction=SystemClock.elapsedRealtime()
         val args=Bundle().apply{putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,permit.value)}
+        budget.check()
         if(!field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,args))return UiResult.UNKNOWN
         field.refresh()
         return if(field.text?.toString()==permit.value)UiResult.SUCCESS else UiResult.UNKNOWN
     }
-    fun captureAllowed(requested: String): Boolean {
+    suspend fun captureAllowed(requested: String): Boolean = try { scan { captureAllowedBlocking(requested) } } catch(e:CancellationException){throw e} catch(_:Exception){false}
+    private fun captureAllowedBlocking(requested: String): Boolean {
         val root=rootInActiveWindow ?: return false
         val active=root.packageName?.toString() ?: return false
         val locked=getSystemService(KeyguardManager::class.java).isKeyguardLocked
         if(!com.byga.smartoverlay.capture.CapturePolicy.mayCapture(requested,active,locked,false)) return false
         val queue=java.util.ArrayDeque<AccessibilityNodeInfo>();queue.add(root);var count=0
         while(queue.isNotEmpty() && count++<500) {
+            budget.check()
             val node=queue.removeFirst()
             if(node.isPassword)return false
             val text=(node.text?.toString() ?: "")+" "+(node.contentDescription?.toString() ?: "")

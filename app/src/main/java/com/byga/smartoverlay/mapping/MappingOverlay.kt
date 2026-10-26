@@ -7,6 +7,7 @@ import android.graphics.*
 import android.os.SystemClock
 import android.view.*
 import android.widget.*
+import com.byga.smartoverlay.overlay.OverlayAppearance
 import com.byga.smartoverlay.MainActivity
 import com.byga.smartoverlay.accessibility.SafeAccessibilityService
 import com.byga.smartoverlay.data.BygaDatabase
@@ -34,6 +35,7 @@ class MappingOverlay(private val context:Context,private val scope:CoroutineScop
         pointer?.let{runCatching{wm.removeView(it)}};pointer=null
         timeout?.cancel();timeout=null;bubbleVisible(true)
     }
+    private fun dismiss() { work?.cancel();runtimeRequest?.answer?.complete(null);close() }
     fun stop() { work?.cancel();MappingRuntime.cancel();close() }
     fun begin(point:Boolean=false) {
         if(com.byga.smartoverlay.workflow.WorkflowRunner.hasActiveRun() && !MappingRuntime.paused){toast("Jeda atau Stop workflow sebelum memetakan tombol");return}
@@ -41,8 +43,11 @@ class MappingOverlay(private val context:Context,private val scope:CoroutineScop
         work?.cancel();hidePanel();close()
         work=scope.launch {
             delay(450)
-            runCatching{checkNotNull(SafeAccessibilityService.current){"Aktifkan Accessibility dahulu"}.mapping.snapshot()}
-                .onSuccess{if(point)point(it) else list(it)}.onFailure{toast(it.message ?: "Layar tidak dapat dibaca")}
+            try {
+                val snapshot=checkNotNull(SafeAccessibilityService.current){"Aktifkan Accessibility dahulu"}.mapping.snapshot()
+                ensureActive()
+                if(point)point(snapshot) else list(snapshot)
+            } catch(e:CancellationException){throw e} catch(e:Exception){toast(e.message ?: "Layar tidak dapat dibaca")}
         }
     }
     private fun toast(text:String){Toast.makeText(context,text,Toast.LENGTH_LONG).show()}
@@ -54,25 +59,29 @@ class MappingOverlay(private val context:Context,private val scope:CoroutineScop
         content(box)
         val scroll=ScrollView(context).apply{addView(box)}
         val width=minOf((340*context.resources.displayMetrics.density).toInt(),context.resources.displayMetrics.widthPixels)
-        val params=WindowManager.LayoutParams(width,(context.resources.displayMetrics.heightPixels*0.62f).toInt(),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,0,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.TOP or Gravity.CENTER_HORIZONTAL;y=(64*context.resources.displayMetrics.density).toInt();softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE}
+        val params=WindowManager.LayoutParams(width,(context.resources.displayMetrics.heightPixels*0.62f).toInt(),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,OverlayAppearance.PANEL_FLAGS,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.TOP or Gravity.CENTER_HORIZONTAL;y=(64*context.resources.displayMetrics.density).toInt();softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE}
+        scroll.setOnTouchListener { _,event -> if(event.actionMasked==MotionEvent.ACTION_OUTSIDE) { dismiss();true } else false }
         runCatching{wm.addView(scroll,params);panel=scroll}.onFailure{toast("Izin overlay tidak tersedia");close()}
     }
-    private fun list(snapshot:MappingSnapshot) {
+    private fun list(snapshot:MappingSnapshot,page:Int=0) {
         show("Smart Mapping • ${snapshot.candidates.size} tombol") { box ->
             box.addView(text("${snapshot.scope.packageName}\n${snapshot.scope.site.ifBlank{snapshot.scope.screen}}\nPilih tombol untuk disorot dan ditinjau. Belum ada tombol aplikasi yang ditekan."))
             button(box,"Tunjuk tombol langsung"){close();point(snapshot)}
-            snapshot.candidates.take(100).forEach { candidate ->
+            snapshot.candidates.drop(page*12).take(12).forEach { candidate ->
                 val name=candidate.identity.description.ifBlank{candidate.identity.label}.ifBlank{candidate.identity.resourceId.substringAfterLast('/')}
                 button(box,name.take(90)){review(snapshot,candidate,null)}
             }
+            if(page>0)button(box,"← Tombol sebelumnya"){list(snapshot,page-1)}
+            if((page+1)*12<snapshot.candidates.size)button(box,"Tombol berikutnya →"){list(snapshot,page+1)}
             if(snapshot.candidates.isEmpty())box.addView(text("Tidak ada tombol beridentitas terbaca. Gunakan mode tunjuk; posisi manual akan selalu meminta konfirmasi."))
             button(box,"Pindai ulang"){begin()}
-            button(box,"Batal"){close()}
+            button(box,"Batal"){dismiss()}
         }
     }
     private fun point(snapshot:MappingSnapshot) {
         close();hidePanel();bubbleVisible(false)
         val frame=android.widget.FrameLayout(context)
+        var selecting=false
         val drawing=object:View(context) {
             private val paint=Paint(Paint.ANTI_ALIAS_FLAG)
             override fun onDraw(canvas:Canvas) {
@@ -81,12 +90,18 @@ class MappingOverlay(private val context:Context,private val scope:CoroutineScop
             }
             @Suppress("ClickableViewAccessibility")
             override fun onTouchEvent(event:MotionEvent):Boolean {
-                if(event.actionMasked==MotionEvent.ACTION_UP) {
+                if(event.actionMasked==MotionEvent.ACTION_UP && !selecting) {
+                    selecting=true
                     val x=event.rawX;val y=event.rawY
-                    val fresh=runCatching{SafeAccessibilityService.current?.mapping?.snapshot()}.getOrNull()
-                    close()
-                    if(fresh==null || fresh.scope!=snapshot.scope || fresh.layoutHash!=snapshot.layoutHash)toast("Layar berubah. Buka mapping kembali.")
-                    else review(fresh,MappingPolicy.candidateAt(fresh,x,y),x to y)
+                    work=scope.launch {
+                        try {
+                            val fresh=SafeAccessibilityService.current?.mapping?.snapshot()
+                            ensureActive()
+                            close()
+                            if(fresh==null || fresh.scope!=snapshot.scope || fresh.layoutHash!=snapshot.layoutHash)toast("Layar berubah. Buka mapping kembali.")
+                            else review(fresh,MappingPolicy.candidateAt(fresh,x,y),x to y)
+                        } catch(e:CancellationException){throw e} catch(e:Exception){close();toast(e.message ?: "Layar tidak dapat dibaca")}
+                    }
                     performClick()
                 }
                 return true
@@ -94,11 +109,11 @@ class MappingOverlay(private val context:Context,private val scope:CoroutineScop
             override fun performClick():Boolean { super.performClick();return true }
         }
         frame.addView(drawing,android.widget.FrameLayout.LayoutParams(-1,-1))
-        val cancel=Button(context).apply{text="Tunjuk target • Batal";isAllCaps=false;setOnClickListener{close()}}
+        val cancel=Button(context).apply{text="Tunjuk target • Batal";isAllCaps=false;setOnClickListener{dismiss()}}
         frame.addView(cancel,android.widget.FrameLayout.LayoutParams(-2,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{topMargin=48})
         val params=WindowManager.LayoutParams(-1,-1,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT)
         runCatching{wm.addView(frame,params);pointer=frame}.onFailure{close();toast("Mode tunjuk tidak tersedia")}
-        timeout=scope.launch{delay(30000);close();toast("Mode tunjuk berakhir; tidak ada klik dilakukan")}
+        timeout=scope.launch{delay(30000);work?.cancel();close();toast("Mode tunjuk berakhir; tidak ada klik dilakukan")}
     }
     private fun review(snapshot:MappingSnapshot,candidate:MappingCandidate?,point:Pair<Float,Float>?) {
         if(candidate==null && point==null){toast("Target tidak ditemukan");return}
@@ -137,7 +152,7 @@ class MappingOverlay(private val context:Context,private val scope:CoroutineScop
             }
             button(box,"Simpan saja"){save(false)}
             button(box,"Simpan & uji tombol sekarang"){save(true)}
-            button(box,"Batal"){close()}
+            button(box,"Batal"){dismiss()}
         }
         highlight(snapshot,candidate?.bounds ?: selectedPoint?.let{TargetBounds(it.first.toInt()-28,it.second.toInt()-28,it.first.toInt()+28,it.second.toInt()+28)})
     }
@@ -160,8 +175,13 @@ class MappingOverlay(private val context:Context,private val scope:CoroutineScop
             button(box,"Batal"){request.answer.complete(null);close()}
         }
         if(request.mapping.kind==MappingKind.POINT) {
-            val s=runCatching{SafeAccessibilityService.current?.mapping?.snapshot()}.getOrNull()
-            if(s!=null){val x=(request.mapping.x*s.width).toInt();val y=(request.mapping.y*s.height).toInt();highlight(s,TargetBounds(x-28,y-28,x+28,y+28))}
+            work=scope.launch {
+                try {
+                    val s=SafeAccessibilityService.current?.mapping?.snapshot()
+                    ensureActive()
+                    if(s!=null && panel!=null && MappingRuntime.confirmation.value===request){val x=(request.mapping.x*s.width).toInt();val y=(request.mapping.y*s.height).toInt();highlight(s,TargetBounds(x-28,y-28,x+28,y+28))}
+                } catch(e:CancellationException){throw e} catch(_:Exception){ /* Confirmation remains available without a highlight. */ }
+            }
         }
     }
 }

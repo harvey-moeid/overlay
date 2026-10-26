@@ -47,7 +47,7 @@ import java.util.UUID
     if(note.isNotBlank())Text(note,color=Cyan)
     SectionTitle("Mapping tersimpan (${rows.size})", "Perubahan mapping membatalkan kecocokan versi yang dipakai workflow lama. Pilih ulang mapping di editor setelah mengubahnya.")
     if(rows.isEmpty())EmptyState("Belum ada tombol tersimpan","Buka aplikasi tujuan dan mulai dari bubble. Mapping disimpan lokal, tanpa mengunggah isi layar ke AI.")
-    rows.forEach { row ->
+    PagedItems(rows) { row ->
         val mapping=runCatching{ButtonMapping.decode(row.body)}.getOrNull()
         if(mapping==null)PremiumCard{Text("Mapping tidak valid");TextButton(onClick={scope.launch{dao.delete("button_mapping",row.id)}}){Text("Hapus")}}
         else PremiumCard {

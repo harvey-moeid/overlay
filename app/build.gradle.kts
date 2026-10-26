@@ -7,7 +7,7 @@ plugins {
 android {
     namespace = "com.byga.smartoverlay"
     compileSdk = 36
-    defaultConfig { applicationId = "com.byga.smartoverlay"; minSdk = 28; targetSdk = 36; versionCode = 6; versionName = "0.6.0-smart-mapping"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+    defaultConfig { applicationId = "com.byga.smartoverlay"; minSdk = 28; targetSdk = 36; versionCode = 7; versionName = "0.6.1-responsive"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
     buildFeatures { compose = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
@@ -35,6 +35,7 @@ dependencies {
     androidTestImplementation("androidx.room:room-testing:2.7.1")
     testImplementation("org.robolectric:robolectric:4.16.1")
     testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")

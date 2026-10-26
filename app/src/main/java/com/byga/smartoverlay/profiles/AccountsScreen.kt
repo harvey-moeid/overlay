@@ -26,7 +26,7 @@ import java.util.UUID
     Button(onClick={if(label.isBlank()||alias.isBlank()||!packageName.matches(Regex("[A-Za-z][A-Za-z0-9_]*([.][A-Za-z0-9_]+)+")))message="Package, label dan alias wajib valid" else scope.launch{val p=AccountProfile(editId?:UUID.randomUUID().toString(),packageName,label,alias);dao.save(Record("account",p.id,p.encode()));editId=null;label="";alias="";message="Profil tersimpan sebagai UNKNOWN; konfirmasi harus diulang sebelum handoff"}}){Text(if(editId==null)"Simpan profil" else "Simpan perubahan; reset konfirmasi")}
     if(message.isNotBlank())Text(message,color=Cyan)
     if(rows.isEmpty())EmptyState("Belum ada profil", "Tambahkan akun tujuan pertama. Password dan sesi login tidak disimpan.")
-    rows.forEach{row->val p=AccountProfile.decode(row);PremiumCard{
+    PagedItems(rows){row->val p=AccountProfile.decode(row);PremiumCard{
         StatusPill(p.status,p.status=="USER_CONFIRMED")
         Text(p.label,style=MaterialTheme.typography.titleMedium);Text(p.alias.ifBlank{"Profil lama: lengkapi handle"},color=Cyan);Text(p.packageName,color=Muted)
         Text("Konfirmasi pengguna berlaku 5 menit; bukan deteksi akun otomatis.",style=MaterialTheme.typography.bodySmall,color=Muted)

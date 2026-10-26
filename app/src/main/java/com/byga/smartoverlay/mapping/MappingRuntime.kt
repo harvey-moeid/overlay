@@ -22,9 +22,9 @@ object MappingRuntime {
         val ready=withTimeoutOrNull(15000) {
             while(true) {
                 awaitUnpaused()
-                val snapshot=runCatching{service.mapping.snapshot()}.onFailure{reason=it.message ?: reason}.getOrNull()
+                val snapshot=try { service.mapping.snapshot() } catch(e:CancellationException){throw e} catch(e:Exception){reason=e.message ?: reason;null}
                 if(snapshot?.scope==mapping.scope)return@withTimeoutOrNull snapshot
-                delay(350)
+                delay(1000)
             }
             @Suppress("UNREACHABLE_CODE") null
         }

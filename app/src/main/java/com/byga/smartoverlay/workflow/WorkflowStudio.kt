@@ -85,6 +85,7 @@ class WorkflowViewModel(app: Application): AndroidViewModel(app) {
             val web=plan.steps.any{it.action in WebWorkflowPolicy.actions}
             if(web && resume) { runner.refuse("Sesi browser tidak disimpan. Periksa hasil situs lalu mulai workflow baru; jangan ulangi generate yang sudah terjadi.");return@launch }
             if(web && Guard.canRun(plan,approved))WorkflowBrowserSession.begin(false)
+            WorkflowBrowserSession.onStatus=runner::reportBrowserStatus
             WorkflowBrowserSession.onPauseChanged={if(it)pause() else resume()}
             WorkflowBrowserSession.paused=false
             MappingRuntime.paused=false
@@ -137,10 +138,10 @@ class WorkflowViewModel(app: Application): AndroidViewModel(app) {
     PremiumCard { Eyebrow("Design your flow"); Text("Dari satu langkah,\nke alur yang rapi.",style=MaterialTheme.typography.headlineSmall); Text("Pilih aplikasi terinstal atau jalankan alur ChatGPT dan Google Flow dari awal sampai hasil tersimpan.",color=Muted) }
     SectionTitle("Template pilihan")
     WorkflowCodec.templates.forEach { t -> OutlinedButton(onClick={load(t)},modifier=Modifier.fillMaxWidth()) { Text(t.name) } }
-    if(rows.isNotEmpty()) { SectionTitle("Library (${rows.size})"); rows.forEach { row -> val p=runCatching{WorkflowCodec.decode(row.body)}.getOrNull(); PremiumCard { Text(p?.name ?: "Workflow legacy / tidak valid"); Row { if(p!=null) TextButton(onClick={load(p,row.id)}){Text("Edit")}; TextButton(onClick={scope.launch { dao.delete("workflow",row.id) }},enabled=!vm.active()){Text("Hapus")}; if(p!=null) TextButton(onClick={Handoffs.share(context,WorkflowCodec.encode(p))}){Text("Ekspor")} } } } }
+    if(rows.isNotEmpty()) { SectionTitle("Library (${rows.size})"); PagedItems(rows) { row -> val p=runCatching{WorkflowCodec.decode(row.body)}.getOrNull(); PremiumCard { Text(p?.name ?: "Workflow legacy / tidak valid"); Row { if(p!=null) TextButton(onClick={load(p,row.id)}){Text("Edit")}; TextButton(onClick={scope.launch { dao.delete("workflow",row.id) }},enabled=!vm.active()){Text("Hapus")}; if(p!=null) TextButton(onClick={Handoffs.share(context,WorkflowCodec.encode(p))}){Text("Ekspor")} } } } }
     SectionTitle("Editor")
     OutlinedTextField(title,{title=it;approval=null},label={Text("Nama workflow")},modifier=Modifier.fillMaxWidth(),enabled=!vm.active())
-    steps.forEachIndexed { index,step -> PremiumCard {
+    PagedItems(steps.withIndex().toList()) { (index,step) -> PremiumCard {
         Text("${index+1}  /  ${step.action.displayName()}",style=MaterialTheme.typography.titleMedium)
         when(step.action) {
             Action.CLICK_MAPPING -> {
@@ -148,7 +149,7 @@ class WorkflowViewModel(app: Application): AndroidViewModel(app) {
                 Text(selected?.name ?: "Pilih tombol dari Smart Mapping")
                 if(selected!=null)Text("${selected.scope.packageName} • ${selected.scope.site.ifBlank{selected.scope.screen}}",color=Muted,style=MaterialTheme.typography.bodySmall)
                 if(selected!=null && selected.fingerprint()!=step.selector)Text("Mapping berubah. Pilih ulang untuk memperbarui versi.",color=MaterialTheme.colorScheme.error)
-                Row(Modifier.horizontalScroll(rememberScrollState())) { mappingRows.forEach { row ->
+                Row(Modifier.horizontalScroll(rememberScrollState())) { PagedItems(mappingRows) { row ->
                     val m=runCatching{ButtonMapping.decode(row.body)}.getOrNull()
                     if(m!=null && m.enabled)FilterChip(selected=step.value==m.id && step.selector==m.fingerprint(),enabled=!vm.active(),onClick={steps=steps.toMutableList().apply{set(index,Step(Action.CLICK_MAPPING,m.id,m.scope.packageName,m.fingerprint()))};approval=null},label={Text(m.name)})
                 } }
@@ -184,7 +185,7 @@ class WorkflowViewModel(app: Application): AndroidViewModel(app) {
         if(vm.active())TextButton(onClick={context.startActivity(Intent(context,WorkflowBrowserActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))}){Text("Lanjutkan di browser workflow")}
         TextButton(enabled=!vm.active(),onClick={android.webkit.CookieManager.getInstance().removeAllCookies{note="Sesi login browser pada perangkat dihapus"};android.webkit.WebStorage.getInstance().deleteAllData()}){Text("Hapus sesi login browser")}
         Text("Alur berjalan saat browser BYGA terlihat dan HP terbuka. Login, pemilihan mode/model Flow, serta crop gambar dapat memerlukan tindakan Anda. Prompt/gambar dikirim ke situs dengan akun Anda; Generate menggunakan kuota/kredit akun. Jika situs menolak login WebView, alur ini belum dapat diteruskan pada perangkat tersebut.",color=Muted)
-        Text("Saat halaman belum siap, petunjuk muncul di atas browser. Timeout 10 menit per langkah. Setelah browser ditutup atau proses mati, periksa hasil sebelum memulai alur baru.",style=MaterialTheme.typography.bodySmall,color=Muted)
+        Text("Saat halaman/login belum siap, status menunggu dan petunjuk tampil di browser serta Monitor, maksimal 60 detik. Halaman gagal langsung menghentikan langkah. Generasi media dapat menunggu hingga 10 menit. Setelah browser ditutup atau proses mati, periksa hasil sebelum memulai alur baru.",style=MaterialTheme.typography.bodySmall,color=Muted)
     }
     if(steps.any{it.action==Action.GENERATE_AI_TEXT}) PremiumCard {
         Text("Provider untuk langkah AI")
@@ -197,7 +198,7 @@ class WorkflowViewModel(app: Application): AndroidViewModel(app) {
     fun start(resume: Boolean) { if(steps.any{it.action==Action.GENERATE_AI_TEXT} && (!aiConsent||provider.isBlank())) {note="Pilih provider dan berikan consent AI dahulu";return}; vm.workflowId=id;vm.providerId=provider;vm.start(plan,approval,resume) }
     Row { Button(enabled=!vm.active() && Guard.canRun(plan,approval),onClick={start(false)}){Text("Jalankan")}; TextButton(enabled=!vm.active() && steps.none{it.action in WebWorkflowPolicy.actions},onClick={start(true)}){Text("Resume checkpoint")} }
     if(note.isNotBlank())Text(note,color=Cyan)
-    PremiumCard { StatusPill(status.state.name,status.state !in setOf(RunState.BLOCKED,RunState.UNKNOWN)); Text("Langkah ${minOf(status.index+1,status.total)} / ${status.total}"); Text(status.note); if(status.total>0)LinearProgressIndicator(progress={status.index.toFloat()/status.total},modifier=Modifier.fillMaxWidth()); if(status.output.isNotBlank()){Text(status.output.take(6000));TextButton(onClick={Handoffs.copy(context,status.output)}){Text("Salin hasil")}}; Row { TextButton(onClick={vm.pause()}){Text("Pause")}; TextButton(onClick={vm.resume()}){Text("Resume")}; TextButton(onClick={vm.stop()}){Text("Stop")} }; if(status.state==RunState.WAITING_FOR_USER && vm.active()) Button(onClick={vm.runner.approve()}){Text("Saya menyetujui, lanjutkan")} }
+    PremiumCard { StatusPill(status.state.name,status.state !in setOf(RunState.BLOCKED,RunState.UNKNOWN)); Text("Langkah ${minOf(status.index+1,status.total)} / ${status.total}"); Text(status.note); if(status.total>0)LinearProgressIndicator(progress={status.index.toFloat()/status.total},modifier=Modifier.fillMaxWidth()); if(status.output.isNotBlank()){Text(status.output.take(6000));TextButton(onClick={Handoffs.copy(context,status.output)}){Text("Salin hasil")}}; Row { TextButton(onClick={vm.pause()}){Text("Pause")}; TextButton(onClick={vm.resume()}){Text("Resume")}; TextButton(onClick={vm.stop()}){Text("Stop")} }; if(vm.runner.awaitingApproval() && vm.active()) Button(onClick={vm.runner.approve()}){Text("Saya menyetujui, lanjutkan")} }
     SectionTitle("Impor JSON", "Impor hanya menjadi draft; scope dan approval tidak ikut diimpor.")
     OutlinedTextField(imported,{imported=it.take(128000)},label={Text("Workflow JSON")},modifier=Modifier.fillMaxWidth(),maxLines=5)
     Button(enabled=!vm.active(),onClick={runCatching{WorkflowCodec.decode(imported)}.onSuccess{load(it)}.onFailure{note="JSON/skema workflow tidak valid"}}){Text("Validasi & impor draft")}

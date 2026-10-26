@@ -115,14 +115,27 @@ class WorkflowBrowserActivity:ComponentActivity() {
         WorkflowBrowserSession.isActive() && WorkflowBrowserSession.command.value===command &&
         !command.result.isCompleted && WebWorkflowPolicy.permits(command.action,web.url ?: "") && !failedLoad && !loading
 
+    private fun progress(note:String,state:RunState=RunState.RUNNING) {
+        if(message.text.toString()!=note)message.text=note
+        WorkflowBrowserSession.report(state,note)
+    }
     private suspend fun awaitVisible(command:WebCommand,domain:Boolean=true) {
-        while(true) {
-            currentCoroutineContext().ensureActive()
-            check(WorkflowBrowserSession.isActive() && !command.result.isCompleted) { "Sesi workflow sudah berakhir" }
-            if(resumed && !WorkflowBrowserSession.paused && !getSystemService(KeyguardManager::class.java).isKeyguardLocked && (!domain || canAct(command)))return
-            message.text=when { WorkflowBrowserSession.paused->"Dijeda. Tekan Lanjut untuk meneruskan.";failedLoad->"Situs tidak dapat dimuat. Periksa koneksi/akses akun lalu mulai ulang alur.";loading->"Menunggu halaman resmi dimuat…";else->"Buka halaman resmi dan selesaikan login secara manual. Langkah menunggu di sini." }
-            delay(400)
-        }
+        awaitBrowserReady(state={
+            checkCommandActive(command)
+            when {
+                domain && failedLoad -> BrowserReadiness.FAILED
+                WorkflowBrowserSession.paused -> BrowserReadiness.PAUSED
+                !resumed -> BrowserReadiness.BACKGROUND
+                getSystemService(KeyguardManager::class.java).isKeyguardLocked -> BrowserReadiness.LOCKED
+                domain && loading -> BrowserReadiness.LOADING
+                !domain || canAct(command) -> BrowserReadiness.READY
+                else -> BrowserReadiness.LOGIN
+            }
+        },onWaiting={progress(it,RunState.WAITING_FOR_USER)})
+        progress(command.action.displayName())
+    }
+    private fun checkCommandActive(command:WebCommand) {
+        check(WorkflowBrowserSession.isActive() && !command.result.isCompleted) { "Sesi workflow sudah berakhir" }
     }
     private suspend fun js(script:String):String {
         return suspendCancellableCoroutine { continuation ->
@@ -159,10 +172,10 @@ class WorkflowBrowserActivity:ComponentActivity() {
         if(command.action==Action.FLOW_UPLOAD_IMAGE) {
             val uri=Uri.parse(command.value)
             check(uri.scheme=="content") { "Pilih ulang gambar di editor workflow." }
-            val mime=contentResolver.getType(uri) ?: ""
-            check(mime in setOf("image/jpeg","image/png","image/webp")) { "Gambar harus JPEG, PNG, atau WebP." }
-            contentResolver.openAssetFileDescriptor(uri,"r")?.use { check(it.length in -1L..20_000_000L){"Gambar maksimal 20MB"} } ?: error("Gambar tidak dapat dibaca. Pilih ulang dari perangkat.")
             withContext(Dispatchers.IO) {
+                val mime=contentResolver.getType(uri) ?: ""
+                check(mime in setOf("image/jpeg","image/png","image/webp")) { "Gambar harus JPEG, PNG, atau WebP." }
+                contentResolver.openAssetFileDescriptor(uri,"r")?.use { check(it.length in -1L..20_000_000L){"Gambar maksimal 20MB"} } ?: error("Gambar tidak dapat dibaca. Pilih ulang dari perangkat.")
                 contentResolver.openInputStream(uri)?.use { input ->
                     val header=ByteArray(32);val count=input.read(header)
                     check(count>0 && MediaPolicy.matches(mime,header.copyOf(count))){"Isi file bukan gambar yang didukung"}
@@ -176,9 +189,9 @@ class WorkflowBrowserActivity:ComponentActivity() {
         while(true) {
             val result=invoke(command,phase)
             when(result.optString("status")) {
-                "wait" -> { message.text="${command.action.displayName()}\n${result.optString("note")}";delay(900) }
+                "wait" -> { progress("${command.action.displayName()}\n${result.optString("note")}");delay(900) }
                 "preparing" -> { phase="prepare";message.text="Membuka kontrol unggah gambar…";delay(700) }
-                "dispatched" -> { phase="observe";message.text="Aksi dikirim satu kali. Menunggu verifikasi…";delay(700) }
+                "dispatched" -> { phase="observe";progress("Aksi dikirim satu kali. Menunggu verifikasi…");delay(700) }
                 "error" -> error(result.optString("note","Adapter situs tidak cocok"))
                 "done" -> {
                     val output=result.optString("result")
@@ -188,7 +201,7 @@ class WorkflowBrowserActivity:ComponentActivity() {
                         awaitVisible(command);Handoffs.copy(this,output);WorkflowBrowserSession.chatResponse=output
                     }
                     if(command.action==Action.CHATGPT_DOWNLOAD_IMAGE || command.action==Action.FLOW_DOWNLOAD_VIDEO || imageResult) {
-                        message.text="Menyimpan media (maks. 50MB)…"
+                        progress("Menyimpan media (maks. 50MB)…")
                         val saved=download(command,output)
                         message.text="Tersimpan di galeri BYGA: $saved";return saved
                     }
@@ -205,7 +218,7 @@ class WorkflowBrowserActivity:ComponentActivity() {
         awaitVisible(command)
         val token="bygaMedia"+UUID.randomUUID().toString().replace("-","")
         val q=JSONObject.quote(token)
-        val file=File.createTempFile("workflow-media-",".part",cacheDir)
+        val file=withContext(Dispatchers.IO){File.createTempFile("workflow-media-",".part",cacheDir)}
         try {
             // Fetch in the page's session, including authenticated/blob media. No cookies leave WebView.
             js("""window[$q]={controller:new AbortController()};fetch(${JSONObject.quote(url)},{credentials:'same-origin',signal:window[$q].controller.signal}).then(async r=>{
@@ -228,7 +241,7 @@ class WorkflowBrowserActivity:ComponentActivity() {
             val meta=JSONObject(js("JSON.stringify({size:window[$q].size,mime:window[$q].mime})"))
             size=meta.getLong("size");mime=meta.getString("mime").substringBefore(';')
             check(if(command.action!=Action.FLOW_DOWNLOAD_VIDEO)mime.startsWith("image/") else mime.startsWith("video/")){"Tipe media tidak sesuai langkah"}
-            file.outputStream().use { stream ->
+            withContext(Dispatchers.IO){file.outputStream()}.use { stream ->
                 var offset=0L
                 while(offset<size) {
                     awaitVisible(command)
@@ -252,7 +265,7 @@ class WorkflowBrowserActivity:ComponentActivity() {
                 is DownloadResult.Blocked -> error(saved.code)
             }
         } finally {
-            file.delete()
+            withContext(NonCancellable+Dispatchers.IO){file.delete()}
             if(WebWorkflowPolicy.permits(command.action,web.url ?: ""))withContext(NonCancellable) {
                 withTimeoutOrNull(1000){js("window[$q]?.controller?.abort();delete window[$q]")}
             }

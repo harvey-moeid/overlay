@@ -1,8 +1,12 @@
 name: Android Debug APK
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+concurrency:
+  group: android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -24,7 +28,7 @@ jobs:
         run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - uses: gradle/actions/setup-gradle@v4
       - name: Test and build debug APK
-        run: ./gradlew testDebugUnitTest assembleDebug lintDebug --no-daemon --console=plain
+        run: ./gradlew testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug --no-daemon --console=plain
       - name: Upload installable debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -45,3 +49,21 @@ jobs:
           name: dashboard-preview-jvm-sdk35
           path: app/build/reports/ui/byga-home.png
           if-no-files-found: ignore
+
+  browser-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install fixture browser
+        run: |
+          npm install --prefix "$RUNNER_TEMP/byga-dom" --no-save --package-lock=false --no-audit --no-fund playwright@1.56.1
+          node "$RUNNER_TEMP/byga-dom/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Test browser adapter fixtures
+        run: |
+          export NODE_PATH="$RUNNER_TEMP/byga-dom/node_modules"
+          export BYGA_CHROMIUM="$(node -p "require('playwright').chromium.executablePath()")"
+          node scripts/test-workflow-adapter.cjs

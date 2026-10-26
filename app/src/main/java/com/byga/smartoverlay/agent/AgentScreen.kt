@@ -1,5 +1,6 @@
 package com.byga.smartoverlay.agent
 
+import com.byga.smartoverlay.ui.PagedItems
 import android.app.KeyguardManager
 import com.byga.smartoverlay.ui.StudioSessions
 import android.os.Build
@@ -151,7 +152,7 @@ fun AgentScreen() {
             var imported by remember { mutableStateOf("") }
             OutlinedTextField(imported,{imported=it.take(65536)},label={Text("JSON plan untuk impor skill")},modifier=Modifier.fillMaxWidth())
             Button(onClick={runCatching { PlanCodec.decode(imported) }.onSuccess { plan -> scope.launch { dao.saveSkill(SkillRow(UUID.randomUUID().toString(),1,plan.goal.take(60),PlanCodec.encode(plan),SkillStatus.DRAFT.name)); status="Impor DRAFT; belum aktif" } }.onFailure { status="Impor ditolak: skema tidak valid" }}) { Text("Validasi & impor sebagai DRAFT") }
-            skills.forEach { row ->
+            PagedItems(skills) { row ->
                 Card { Column(Modifier.padding(12.dp)) {
                     Text("${row.name} • v${row.version} • ${row.status}")
                     if(row.status in setOf("DRAFT","DISABLED","TESTING")) Button(onClick={
@@ -179,7 +180,7 @@ fun AgentScreen() {
             Button(onClick={if(text.isNotBlank()) scope.launch { dao.saveMemory(MemoryEntry(editingMemoryId ?: UUID.randomUUID().toString(),text,System.currentTimeMillis())); text=""; editingMemoryId=null; results=null }}) { Text("Saya setuju simpan memori ini") }
             OutlinedTextField(query,{query=it; results=null},label={Text("Cari keyword lokal")})
             Button(onClick={scope.launch { results=dao.searchMemory(query) }}) { Text("Cari") }
-            (results ?: memories).forEach { memory -> Card { Column(Modifier.padding(12.dp)) {
+            PagedItems(results ?: memories,query) { memory -> Card { Column(Modifier.padding(12.dp)) {
                 Text(memory.text)
                 TextButton(onClick={text=memory.text; editingMemoryId=memory.id}) { Text("Edit (simpan setelah review)") }
                 TextButton(onClick={scope.launch { dao.forget(memory.id); results=null }}) { Text("Forget") }

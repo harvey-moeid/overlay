@@ -21,7 +21,7 @@ class StorageTest {
         assertEquals("step:2",reopened.records().get("checkpoint","run")?.body)
         reopened.close(); context.deleteDatabase(name)
     }
-    @Test fun encryptedSecretRoundTripAndDelete() {
+    @Test fun encryptedSecretRoundTripAndDelete() = runBlocking {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val store=SecretStore(context); val id="instrumented-test"
         try { store.save(id,"fake-value-no-real-credential"); assertEquals("fake-value-no-real-credential",store.read(id)); store.delete(id); assertNull(store.read(id)) } finally { store.delete(id) }

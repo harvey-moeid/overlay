@@ -19,7 +19,8 @@ import org.robolectric.annotation.Config
 
 class MappingFakeService:AccessibilityService() {
     var screen:AccessibilityNodeInfo?=null
-    override fun getRootInActiveWindow()=screen
+    var readThread:Thread?=null
+    override fun getRootInActiveWindow():AccessibilityNodeInfo? { readThread=Thread.currentThread();return screen }
     override fun getWindows():MutableList<AccessibilityWindowInfo> = mutableListOf()
     override fun onAccessibilityEvent(event:AccessibilityEvent?)=Unit
     override fun onInterrupt()=Unit
@@ -41,26 +42,30 @@ class MappingAccessibilityTest {
     }
     private fun attach(root:AccessibilityNodeInfo,child:AccessibilityNodeInfo){shadowOf(root).addChild(child)}
     private fun scene():Pair<AccessibilityNodeInfo,AccessibilityNodeInfo>{val root=node();val button=node(label="Kirim",id="app:id/send",clickable=true);attach(root,button);service.screen=root;return root to button}
-    private fun saved():ButtonMapping { val s=adapter.snapshot();return ButtonMapping(name="Kirim",scope=s.scope,identity=s.candidates.single().identity) }
-    @Test fun observingDoesNotClick(){scene();val s=adapter.snapshot();assertEquals(1,s.candidates.size);assertEquals(0,clicks)}
+    private suspend fun saved():ButtonMapping { val s=adapter.snapshot();return ButtonMapping(name="Kirim",scope=s.scope,identity=s.candidates.single().identity) }
+    @Test fun remoteTreeIsReadOffTheCallingThread()=runTest {
+        scene();val caller=Thread.currentThread();adapter.snapshot()
+        assertNotNull(service.readThread);assertNotSame(caller,service.readThread)
+    }
+    @Test fun observingDoesNotClick()=runTest {scene();val s=adapter.snapshot();assertEquals(1,s.candidates.size);assertEquals(0,clicks)}
     @Test fun matchedNativeActionIsDispatchedExactlyOnce()=runTest {scene();val m=saved();val permit=MappingClickPermit(m.fingerprint(),SystemClock.elapsedRealtime());assertTrue(adapter.click(m,permit).startsWith("CLICK_ACCEPTED"));assertEquals(1,clicks);try{adapter.click(m,permit);fail()}catch(_:IllegalStateException){};assertEquals(1,clicks)}
     @Test fun nativeActionFollowsMovedNodeInsteadOfOldPoint()=runTest {val(_,button)=scene();val m=saved();button.setBoundsInScreen(Rect(600,900,850,1000));adapter.click(m,MappingClickPermit(m.fingerprint(),SystemClock.elapsedRealtime()));assertEquals(1,clicks)}
     @Test fun nativeAmbiguityCausesNoAction()=runTest {val(root,_)=scene();val m=saved();attach(root,node(label="Kirim",id="app:id/send",clickable=true));try{adapter.click(m,MappingClickPermit(m.fingerprint(),SystemClock.elapsedRealtime()));fail()}catch(_:IllegalStateException){};assertEquals(0,clicks)}
-    @Test fun passwordScreenCannotBeMapped(){val(root,_)=scene();attach(root,node().apply{isPassword=true;isEditable=true});try{adapter.snapshot();fail()}catch(_:IllegalStateException){};assertEquals(0,clicks)}
-    @Test fun lockedDeviceCannotBeMapped(){scene();shadowOf(service.getSystemService(KeyguardManager::class.java)).setKeyguardLocked(true);try{adapter.snapshot();fail()}catch(_:IllegalStateException){};assertEquals(0,clicks)}
+    @Test fun passwordScreenCannotBeMapped()=runTest {val(root,_)=scene();attach(root,node().apply{isPassword=true;isEditable=true});try{adapter.snapshot();fail()}catch(_:IllegalStateException){};assertEquals(0,clicks)}
+    @Test fun lockedDeviceCannotBeMapped()=runTest {scene();shadowOf(service.getSystemService(KeyguardManager::class.java)).setKeyguardLocked(true);try{adapter.snapshot();fail()}catch(_:IllegalStateException){};assertEquals(0,clicks)}
     @Test fun anotherAppCannotReceiveMappedClick()=runTest {scene();val m=saved();service.screen=node(pkg="com.bank.app");try{adapter.click(m,MappingClickPermit(m.fingerprint(),SystemClock.elapsedRealtime()));fail()}catch(_:IllegalStateException){};assertEquals(0,clicks)}
-    @Test fun chromeDomainAndPageContentAreScoped(){
+    @Test fun chromeDomainAndPageContentAreScoped()=runTest {
         val root=node(MappingPolicy.CHROME);val bar=node(MappingPolicy.CHROME,"labs.google/fx/tools/flow/project/123","com.android.chrome:id/url_bar")
         attach(root,bar);attach(root,node(MappingPolicy.CHROME,"Toolbar",clickable=true))
         val web=node(MappingPolicy.CHROME).apply{className="android.webkit.WebView"};attach(root,web);attach(web,node(MappingPolicy.CHROME,"Generate","web:generate",true));service.screen=root
         val snapshot=adapter.snapshot();assertEquals("flow-project",snapshot.scope.screen);assertEquals(1,snapshot.candidates.size);assertEquals("Generate",snapshot.candidates.single().identity.label)
         bar.text="evil.com/fx/tools/flow";try{adapter.snapshot();fail()}catch(_:IllegalStateException){}
     }
-    @Test fun editingChromeAddressIsNotEvidenceOfLoadedSite(){
+    @Test fun editingChromeAddressIsNotEvidenceOfLoadedSite()=runTest {
         val root=node(MappingPolicy.CHROME);attach(root,node(MappingPolicy.CHROME,"chatgpt.com","com.android.chrome:id/url_bar").apply{isFocused=true});service.screen=root
         try{adapter.snapshot();fail()}catch(_:IllegalStateException){};assertEquals(0,clicks)
     }
-    @Test fun bygaMappingsAreRestrictedToPracticeArea(){
+    @Test fun bygaMappingsAreRestrictedToPracticeArea()=runTest {
         val root=node(MappingPolicy.BYGA);attach(root,node(MappingPolicy.BYGA,"Stop","toolbar:stop",true));val practice=node(MappingPolicy.BYGA).apply{contentDescription="byga_mapping_test_screen"};attach(root,practice);attach(practice,node(MappingPolicy.BYGA,"Latihan","practice",true));service.screen=root
         val s=adapter.snapshot();assertEquals("mapping-test",s.scope.screen);assertEquals(listOf("Latihan"),s.candidates.map{it.identity.label})
     }
