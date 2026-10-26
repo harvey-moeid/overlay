@@ -162,7 +162,8 @@ class OverlayService : Service() {
                 closePanel()
                 manualHandler.postDelayed({
                     serviceScope.launch {
-                        val result=SafeAccessibilityService.current?.applyReviewedInput(permit) ?: UiResult.PERMISSION_DENIED
+                        val result=try { SafeAccessibilityService.current?.applyReviewedInput(permit) ?: UiResult.PERMISSION_DENIED }
+                            catch(e:CancellationException){throw e} catch(_:Exception){UiResult.BLOCKED}
                         Toast.makeText(this@OverlayService,"BYGA input: $result • tidak menekan Kirim",Toast.LENGTH_LONG).show()
                         BygaDatabase.get(this@OverlayService).records().save(Record("manual_input",java.util.UUID.randomUUID().toString(),"$target • $result"))
                     }

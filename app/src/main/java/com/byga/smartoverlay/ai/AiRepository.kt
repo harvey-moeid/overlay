@@ -28,7 +28,7 @@ class AiRepository(private val context: Context) {
         for(id in providerIds.distinct().take(3)) {
             val record=db.records().get("provider",id) ?: continue
             val config=runCatching { JSONObject(record.body) }.getOrNull() ?: continue
-            val key=try { SecretStore(context).read(id) } catch(_: Exception) { null }
+            val key=try { SecretStore(context).read(id) } catch(e:CancellationException){throw e} catch(_: Exception) { null }
             if(key.isNullOrBlank()) { last="Key provider tidak tersedia"; continue }
             reserve(dailyLimit)
             val type=ProviderType.valueOf(config.getString("type"))

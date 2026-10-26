@@ -1,5 +1,6 @@
 package com.byga.smartoverlay.accessibility
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import android.accessibilityservice.AccessibilityService
 import android.provider.Settings
@@ -110,7 +111,7 @@ class SafeAccessibilityService : AccessibilityService() {
         field.refresh()
         return if(field.text?.toString()==permit.value)UiResult.SUCCESS else UiResult.UNKNOWN
     }
-    suspend fun captureAllowed(requested: String): Boolean = scan { captureAllowedBlocking(requested) }
+    suspend fun captureAllowed(requested: String): Boolean = try { scan { captureAllowedBlocking(requested) } } catch(e:CancellationException){throw e} catch(_:Exception){false}
     private fun captureAllowedBlocking(requested: String): Boolean {
         val root=rootInActiveWindow ?: return false
         val active=root.packageName?.toString() ?: return false
