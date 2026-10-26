@@ -1,3 +1,11 @@
+# 0.6.2 — Smooth runtime
+
+- Optimized non-debuggable APK with R8/resource shrinking for private installation.
+- Bubble window updates at most once per display frame; no Accessibility lookup before opening its quick panel.
+- Shared sampled bitmap cache, lazy chat rendering, SQL history summaries and lifecycle-aware UI data.
+- Global Stop cancels the whole reviewed-input job; explicit Pause preserves the readiness budget.
+- Local frame diagnostics and Android15/16 emulator runtime checks.
+
 # 0.6.1 — Responsiveness and compact bubble
 
 - Compact 28dp default robot, 24–56dp setting and 48dp minimum touch target.
