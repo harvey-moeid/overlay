@@ -49,11 +49,17 @@ class PerformanceDeviceTest {
                 device.swipe(bounds.centerX(),bounds.centerY(),device.displayWidth*3/4,device.displayHeight/3,180)
                 device.waitForIdle()
                 assertNotNull("Bubble remains after drag",device.findObject(selector))
+                if(device.currentPackageName!=context.packageName) {
+                    File(context.getExternalFilesDir(null),"bubble-window-state.txt").writeText(device.executeShellCommand("dumpsys window"))
+                    device.takeScreenshot(File(context.getExternalFilesDir(null),"bubble-drag-failure.png"))
+                }
+                assertEquals("Dragging from the dock must not navigate Back in the underlying app",context.packageName,device.currentPackageName)
             }
             val start=SystemClock.elapsedRealtime()
             device.findObject(selector).click()
             assertTrue("Quick panel opens without accessibility scan",device.wait(Until.hasObject(By.text("BYGA  /  QUICK STUDIO")),3000))
             panelMs=SystemClock.elapsedRealtime()-start
+            device.waitForIdle()
             device.takeScreenshot(File(context.getExternalFilesDir(null),"byga-quick-panel.png"))
             // A focusable overlay owns the accessibility root; tap the underlying nav location.
             device.click(chatBounds.centerX(),chatBounds.centerY())

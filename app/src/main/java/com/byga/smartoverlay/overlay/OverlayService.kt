@@ -97,6 +97,12 @@ class OverlayService : Service() {
             isFocusable=true
             isClickable=true
             isLongClickable=true
+            addOnLayoutChangeListener { target,left,top,right,bottom,_,_,_,_ ->
+                if(android.os.Build.VERSION.SDK_INT>=29) {
+                    // Only this 48dp control owns edge drags; Back remains available elsewhere.
+                    target.systemGestureExclusionRects=listOf(android.graphics.Rect(0,0,right-left,bottom-top))
+                }
+            }
         }
         var longPressed=false
         var dragged=false
