@@ -2,6 +2,8 @@ package com.byga.smartoverlay.ui
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -14,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -66,7 +69,10 @@ val destinations=listOf(
 @Composable fun EmptyState(title: String, detail: String, action: String?=null, onAction: () -> Unit={}) {
     PremiumCard { Icon(Icons.Default.Star,null,tint=Cyan,modifier=Modifier.size(30.dp)); Text(title,style=MaterialTheme.typography.titleMedium); Text(detail,color=Muted); action?.let { TextButton(onClick=onAction) { Text(it); Icon(Icons.AutoMirrored.Filled.ArrowForward,null,modifier=Modifier.size(16.dp)) } } }
 }
-@Composable fun Dashboard(overlay: Boolean, accessibility: Boolean, providerCount: Int, workflowCount: Int, accountCount: Int, bubbleRunning: Boolean, onNavigate:(String)->Unit,onBubble:()->Unit) {
+@Composable fun Dashboard(overlay: Boolean, accessibility: Boolean, providerCount: Int, workflowCount: Int, accountCount: Int, bubbleRunning: Boolean, onNavigate:(String)->Unit,onBubble:()->Unit,modifier:Modifier=Modifier) {
+    val workspaceRows=remember { destinations.filter { it.id in setOf("Chat","Workflows","Media & Social","AI Providers","Capture","Agent Experimental","Smart Mapping") }.chunked(2) }
+    LazyColumn(modifier.testTag("dashboard-list"),contentPadding=PaddingValues(top=4.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+    item("hero") {
     Box(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF17325A),Color(0xFF111C34),Color(0xFF102B37))),RoundedCornerShape(30.dp)).border(1.dp,Color(0xFF35578A),RoundedCornerShape(30.dp)).padding(22.dp)) {
         Column(Modifier.fillMaxWidth(0.67f),verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Eyebrow("Your everyday copilot")
@@ -76,11 +82,17 @@ val destinations=listOf(
         }
         RobotImage(124.dp,"Maskot BYGA",Modifier.align(Alignment.CenterEnd).offset(x=16.dp,y=(-2).dp).size(124.dp))
     }
+    }
+    item("counts") {
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
         listOf("$providerCount" to "Provider","$workflowCount" to "Workflow","$accountCount" to "Akun").forEach { (n,label) -> Card(Modifier.weight(1f),border=BorderStroke(1.dp,Line),colors=CardDefaults.cardColors(containerColor=Color(0xFF101B2D))) { Column(Modifier.padding(14.dp)) { Text(n,style=MaterialTheme.typography.headlineSmall,color=Cyan); Text(label,color=Muted,style=MaterialTheme.typography.labelMedium) } } }
     }
+    }
+    item("bubble") {
     PremiumCard { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) { Column { Text("Robot bubble",style=MaterialTheme.typography.titleMedium); Text(if(overlay) "Siap menemani di atas aplikasi" else "Berikan izin overlay untuk memulai",color=Muted,style=MaterialTheme.typography.bodySmall) }; Switch(checked=bubbleRunning, onCheckedChange={if(!overlay)onNavigate("Mulai") else onBubble()}) }; Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { StatusPill(if(overlay) "Overlay diizinkan" else "Izin diperlukan",overlay); StatusPill(if(accessibility) "Accessibility aktif" else "Mode manual",accessibility) }; Button(onClick=if(overlay) onBubble else ({onNavigate("Mulai")})) { Text(if(!overlay) "Siapkan izin" else if(bubbleRunning) "Tutup bubble" else "Tampilkan bubble") } }
-    SectionTitle("Ruang kerja", "Semua yang Anda perlukan, dalam satu tempat.")
-    destinations.filter { it.id in setOf("Chat","Workflows","Media & Social","AI Providers","Capture","Agent Experimental","Smart Mapping") }.chunked(2).forEach { pair -> Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) { pair.forEach { d -> Card(onClick={onNavigate(d.id)},modifier=Modifier.weight(1f),border=BorderStroke(1.dp,Line),colors=CardDefaults.cardColors(containerColor=Color(0xFF101B2D))) { Column(Modifier.padding(18.dp).heightIn(min=105.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) { Icon(d.icon,null,tint=Cyan,modifier=Modifier.size(26.dp)); Text(d.title,style=MaterialTheme.typography.titleMedium); Text(d.caption,color=Muted,style=MaterialTheme.typography.bodySmall) } } } } }
-    Text("LOCAL FIRST  •  PRIVATE BY DESIGN",color=Muted,style=MaterialTheme.typography.labelSmall,modifier=Modifier.padding(vertical=12.dp))
+    }
+    item("workspace-title") { SectionTitle("Ruang kerja", "Semua yang Anda perlukan, dalam satu tempat.") }
+    items(workspaceRows,key={it.first().id},contentType={"destinations"}) { pair -> Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) { pair.forEach { d -> Card(onClick={onNavigate(d.id)},modifier=Modifier.weight(1f),border=BorderStroke(1.dp,Line),colors=CardDefaults.cardColors(containerColor=Color(0xFF101B2D))) { Column(Modifier.padding(18.dp).heightIn(min=105.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) { Icon(d.icon,null,tint=Cyan,modifier=Modifier.size(26.dp)); Text(d.title,style=MaterialTheme.typography.titleMedium); Text(d.caption,color=Muted,style=MaterialTheme.typography.bodySmall) } } } } }
+    item("footer") { Text("LOCAL FIRST  •  PRIVATE BY DESIGN",color=Muted,style=MaterialTheme.typography.labelSmall,modifier=Modifier.padding(vertical=12.dp)) }
+    }
 }

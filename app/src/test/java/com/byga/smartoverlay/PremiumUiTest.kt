@@ -52,7 +52,8 @@ class PremiumUiTest {
         screenshot("byga-app-step.png")
     }
     @Test fun smartMappingRouteAndPracticeButton(){
-        compose.onNodeWithText("Smart Mapping").performScrollTo().performClick()
+        compose.onNodeWithTag("dashboard-list").performScrollToNode(hasText("Smart Mapping"))
+        compose.onNodeWithText("Smart Mapping").performClick()
         compose.onNodeWithText("Kenali tombol.\nRangkai tindakan.").assertIsDisplayed()
         compose.onNodeWithContentDescription("Logo robot BYGA BG").assertExists()
         screenshot("byga-mapping.png")

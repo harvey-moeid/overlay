@@ -15,13 +15,24 @@ import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class StudioDeviceTest {
+    // Use a real vertical gesture: Compose pages can contain horizontal scrollers too.
+    private fun scrollTo(device:UiDevice,selector:BySelector):UiObject2 {
+        repeat(28) {
+            device.findObject(selector)?.let { node ->
+                val bounds=node.visibleBounds
+                if(bounds.width()>0 && bounds.height()>0 && bounds.centerY()<device.displayHeight*0.84)return node
+            }
+            device.swipe(device.displayWidth/2,device.displayHeight*4/5,device.displayWidth/2,device.displayHeight/4,30)
+            device.waitForIdle()
+        }
+        throw AssertionError("Visible scroll target not found: $selector")
+    }
     @Test fun smartMappingRouteAndPracticeButton(){
         val instrumentation=InstrumentationRegistry.getInstrumentation();val context=instrumentation.targetContext;val device=UiDevice.getInstance(instrumentation)
         context.startActivity(Intent(context,MainActivity::class.java).putExtra("open_mapping",true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         assertTrue(device.wait(Until.hasObject(By.textContains("Kenali tombol.")),30000))
         device.takeScreenshot(File(context.getExternalFilesDir(null),"byga-smart-mapping.png"))
-        val scroll=UiScrollable(UiSelector().scrollable(true));assertTrue(scroll.scrollTextIntoView("Tombol latihan"))
-        device.findObject(By.desc("byga_mapping_demo_button")).click()
+        scrollTo(device,By.desc("byga_mapping_demo_button")).click()
         assertTrue(device.wait(Until.hasObject(By.text("Ditekan 1 kali")),10000))
     }
     @Test fun budgetReservationsAreAtomicAndPersisted()=runBlocking{
@@ -56,11 +67,8 @@ class StudioDeviceTest {
         device.findObject(By.text("Alur")).click()
         assertTrue("Workflow editor route",device.wait(Until.hasObject(By.text("Dari satu langkah,\nke alur yang rapi.")),30000))
         device.takeScreenshot(File(context.getExternalFilesDir(null),"byga-workflows.png"))
-        val scroll=UiScrollable(UiSelector().scrollable(true))
-        assertTrue(scroll.scrollTextIntoView("Buka aplikasi terinstal"))
-        device.findObject(By.text("Buka aplikasi terinstal")).click()
-        assertTrue(scroll.scrollTextIntoView("Pilih aplikasi terinstal"))
-        device.findObject(By.text("Pilih aplikasi terinstal")).click()
+        scrollTo(device,By.text("Buka aplikasi terinstal")).click()
+        scrollTo(device,By.text("Pilih aplikasi terinstal")).click()
         assertTrue("Installed app search dialog",device.wait(Until.hasObject(By.text("Cari nama aplikasi")),10000))
         device.findObject(By.text("Tutup")).click()
     }

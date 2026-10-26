@@ -127,6 +127,8 @@ class MainActivity : ComponentActivity() {
                 screenState.SaveableStateProvider(tab) {
                 if(tab=="Chat") {
                     ChatStudio(initialPrompt=chatSeed,onDraft={prompt=it;tab="Media & Social"},onNavigateProviders={tab="AI Providers"},modifier=Modifier.fillMaxSize().padding(insets).background(Ink).padding(horizontal=18.dp))
+                } else if(tab=="Home") {
+                    Dashboard(overlay,accessibility,providers.size,workflowCount,accountCount,bubbleRunning,{tab=it},::toggleBubble,Modifier.fillMaxSize().padding(insets).background(Ink).padding(horizontal=18.dp))
                 } else Column(Modifier.fillMaxSize().padding(insets).background(Brush.verticalGradient(listOf(Ink,Color(0xFF0B1424)))).padding(horizontal=18.dp).verticalScroll(rememberScrollState()).padding(bottom=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                     if(tab!="Home") { val d=destinations.firstOrNull{it.id==tab}; Column(Modifier.padding(top=12.dp,bottom=4.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){Eyebrow("BYGA / ${d?.title ?: tab}"); Text(d?.title ?: tab,style=MaterialTheme.typography.headlineLarge); Text(d?.caption ?: "",color=Muted)} } else Spacer(Modifier.height(4.dp))
                         when(tab) {
@@ -142,7 +144,6 @@ class MainActivity : ComponentActivity() {
                                 Button(onClick={ if(overlay) { ContextCompat.startForegroundService(this@MainActivity,Intent(this@MainActivity,OverlayService::class.java)); message="Bubble diminta; verifikasi tampil di HP" } else message="Berikan izin overlay terlebih dahulu" }) { Text("Mulai bubble") }
                             }
                             "Agent Experimental" -> { AgentScreen() }
-                            "Home" -> { Dashboard(overlay,accessibility,providers.size,workflowCount,accountCount,bubbleRunning,{tab=it},::toggleBubble) }
                             "Capture" -> { CaptureScreen() }
                             "Studio" -> { PromptLibrary(onChat={chatSeed=it;tab="Chat"},onDraft={prompt=it;tab="Media & Social"}) }
                             "Monitor" -> { RuntimeMonitor() }

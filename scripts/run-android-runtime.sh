@@ -3,6 +3,9 @@ set -euo pipefail
 mkdir -p runtime-device-results
 
 collect_diagnostics() {
+  adb shell dumpsys gfxinfo com.byga.smartoverlay framestats > runtime-device-results/gfxinfo-final.txt || true
+  adb shell uiautomator dump /sdcard/byga-window.xml >/dev/null 2>&1 || true
+  adb pull /sdcard/byga-window.xml runtime-device-results/window.xml >/dev/null 2>&1 || true
   adb logcat -d -b crash > runtime-device-results/crash.txt || true
   adb logcat -d -v time -s AndroidRuntime TestRunner > runtime-device-results/app-logcat.txt || true
   if adb shell test -d /sdcard/Android/data/com.byga.smartoverlay/files; then

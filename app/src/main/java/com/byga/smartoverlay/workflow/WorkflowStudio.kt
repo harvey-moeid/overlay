@@ -157,15 +157,19 @@ class WorkflowViewModel(app: Application): AndroidViewModel(app) {
                 if(mappingRows.isEmpty())Text("Buka Lainnya → Smart Mapping untuk membuat mapping melalui bubble.",color=Muted)
             }
             Action.LAUNCH_APP -> {
-                val label=remember(step.packageName) { runCatching{context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(step.packageName,0)).toString()}.getOrNull() }
+                val label by produceState<String?>(null,context,step.packageName) {
+                    value=withContext(Dispatchers.IO) { runCatching{context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(step.packageName,0)).toString()}.getOrNull() }
+                }
                 Text(label ?: if(step.packageName.isBlank())"Belum memilih aplikasi" else "Aplikasi tidak tersedia pada profil ini")
                 if(step.packageName.isNotBlank())Text(step.packageName,style=MaterialTheme.typography.bodySmall,color=Muted)
                 OutlinedButton(enabled=!vm.active(),onClick={appStep=index}){Text("Pilih aplikasi terinstal")}
             }
             Action.FLOW_UPLOAD_IMAGE -> {
-                val name=remember(step.value) { runCatching {
-                    context.contentResolver.query(Uri.parse(step.value),arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),null,null,null)?.use{c->if(c.moveToFirst())c.getString(0) else null}
-                }.getOrNull() }
+                val name by produceState<String?>(null,context,step.value) {
+                    value=withContext(Dispatchers.IO) { runCatching {
+                        context.contentResolver.query(Uri.parse(step.value),arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),null,null,null)?.use{c->if(c.moveToFirst())c.getString(0) else null}
+                    }.getOrNull() }
+                }
                 Text(if(step.value=="{{output}}")"Pakai gambar dari hasil langkah sebelumnya" else name ?: "Belum memilih gambar")
                 Text("JPEG, PNG, WebP • maks. 20MB",style=MaterialTheme.typography.bodySmall,color=Muted)
                 OutlinedButton(enabled=!vm.active(),onClick={imageStep=index;imagePlan=plan.fingerprint();imagePicker.launch(arrayOf("image/jpeg","image/png","image/webp"))}){Text("Pilih gambar perangkat")}

@@ -29,9 +29,7 @@ class PerformanceDeviceTest {
         repeat(8){device.swipe(x,bottom,x,top,30);device.swipe(x,top,x,bottom,30)}
         device.waitForIdle()
         val frames=UiPerformance.frames.snapshot()
-        assertTrue("Real frame samples were received: $frames",frames.frames>=10)
-        assertEquals("No frozen frame during warmed scrolling: $frames",0L,frames.frozen)
-        assertTrue("Coarse emulator regression threshold, not a 60fps guarantee: $frames",frames.p95ms<100)
+        File(context.getExternalFilesDir(null),"scroll-gfxinfo.txt").writeText(device.executeShellCommand("dumpsys gfxinfo ${context.packageName} framestats"))
 
         device.executeShellCommand("appops set ${context.packageName} SYSTEM_ALERT_WINDOW allow")
         var panelMs=0L
@@ -54,8 +52,12 @@ class PerformanceDeviceTest {
             assertTrue("Outside tap closes panel",device.wait(Until.gone(By.text("BYGA  /  QUICK STUDIO")),3000))
         } finally { context.stopService(Intent(context,OverlayService::class.java)) }
         val report=JSONObject().put("version",BuildConfig.VERSION_NAME).put("buildType",BuildConfig.BUILD_TYPE)
+            .put("widthPixels",device.displayWidth).put("heightPixels",device.displayHeight)
             .put("frames",frames.frames).put("over32ms",frames.over32ms).put("frozen",frames.frozen)
             .put("p95ms",frames.p95ms).put("maxMs",frames.maxMs).put("quickPanelMs",panelMs)
         File(context.getExternalFilesDir(null),"performance-smoke.json").writeText(report.toString(2))
+        assertTrue("Real frame samples were received: $frames",frames.frames>=10)
+        assertEquals("No frozen frame during warmed scrolling: $frames",0L,frames.frozen)
+        assertTrue("Coarse emulator regression threshold, not a 60fps guarantee: $frames",frames.p95ms<100)
     }
 }
