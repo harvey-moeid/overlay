@@ -80,7 +80,7 @@ jobs:
       - name: Install fixture browser
         run: |
           npm install --prefix "$RUNNER_TEMP/byga-dom" --no-save --package-lock=false --no-audit --no-fund playwright@1.56.1
-          node "$RUNNER_TEMP/byga-dom/node_modules/playwright/cli.js" install --with-deps chromium
+          node "$RUNNER_TEMP/byga-dom/node_modules/playwright/cli.js" install chromium
       - name: Test browser adapter fixtures
         run: |
           export NODE_PATH="$RUNNER_TEMP/byga-dom/node_modules"
