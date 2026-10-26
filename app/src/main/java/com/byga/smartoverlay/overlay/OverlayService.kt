@@ -181,7 +181,17 @@ class OverlayService : Service() {
         val p=WindowManager.LayoutParams(width,height,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,OverlayAppearance.PANEL_FLAGS or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,PixelFormat.TRANSLUCENT).apply {
             gravity=Gravity.TOP or Gravity.CENTER_HORIZONTAL; y=64; softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
-        scroller.setOnTouchListener { _,event -> if(event.actionMasked==MotionEvent.ACTION_OUTSIDE) { stopPendingInput();true } else false }
+        scroller.setOnTouchListener { _,event ->
+            if(event.actionMasked==MotionEvent.ACTION_OUTSIDE) {
+                // Let the bubble's click toggle the panel once; an outside-dismiss on
+                // DOWN followed by toggle on UP would otherwise reopen the same panel.
+                val icon=bubble;val location=IntArray(2)
+                icon?.getLocationOnScreen(location)
+                val onBubble=icon!=null && android.graphics.Rect(location[0],location[1],location[0]+icon.width,location[1]+icon.height).contains(event.rawX.toInt(),event.rawY.toInt())
+                if(!onBubble)stopPendingInput()
+                true
+            } else false
+        }
         try { wm.addView(scroller,p); panel=scroller } catch (_: Exception) { panel=null }
     }
     private fun prepareManualInput(value:String) {
