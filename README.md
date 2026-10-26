@@ -12,7 +12,7 @@ Buka **GitHub → Actions → Android Debug APK → run sukses → Artifacts →
 
 - **Dashboard & navigasi:** hero robot, status izin/bubble aktual, hitungan data tersimpan, shortcut dan navigasi bawah. Lainnya membuka seluruh workspace. Tombol Stop di toolbar membatalkan chat/workflow/agent/capture dan menutup bubble.
 - **Smart Mapping:** deteksi tombol dan mode tunjuk dari bubble; review Simpan/Uji/Batal, identitas per aplikasi/situs/layar, library lokal, binding versi ke workflow, serta posisi manual dengan konfirmasi wajib. Target awal: ChatGPT native, Chrome ChatGPT/Flow, browser BYGA dan area latihan. [Cara pakai dan batas](docs/SMART_MAPPING.md); kompatibilitas aplikasi nyata masih NEEDS_REAL_DEVICE.
-- **Robot bubble:** maskot BG/byga sesuai referensi, PNG transparan, ukuran 56–128dp, drag/dock, panel prompt/clipboard/share, long-press dan notification Stop, serta panel scrollable. Input manual ke kolom fokus di BYGA/ChatGPT/Claude/TikTok/Instagram memakai review teks/akun/target dan permit single-use 10 detik; tidak menekan Kirim. Atur di Settings.
+- **Robot bubble:** maskot BG/byga sesuai referensi, PNG transparan, ukuran visual 24–56dp (default kecil 28dp, area ketuk minimal 48dp), drag/dock, panel prompt/clipboard/share, long-press dan notification Stop, serta panel scrollable. Input manual ke kolom fokus di BYGA/ChatGPT/Claude/TikTok/Instagram memakai review teks/akun/target dan permit single-use 10 detik; tidak menekan Kirim. Atur di Settings.
 - **AI Chat:** provider/model tersimpan, percakapan multi-turn lokal, consent outbound, fallback opsional maksimal tiga provider, batas request harian, cancellation, riwayat/delete, copy dan kirim hasil ke draft sosial. Limit menghitung reservasi percobaan AI Chat/Workflow, bukan biaya dolar; Agent Lab/health test terpisah.
 - **Providers:** OpenAI, Anthropic, Gemini, OpenRouter, Groq, Cohere, Hugging Face, Mistral, NVIDIA NIM, custom HTTPS. Picker model saran/live/manual. API key AES-GCM Android Keystore. [Panduan](docs/PROVIDERS.md).
 - **Prompt Library:** banyak template, tag/search/favorite, edit/copy, gunakan di Chat atau draft. Tidak ada request otomatis saat membuka template.
@@ -35,6 +35,8 @@ Buka **GitHub → Actions → Android Debug APK → run sukses → Artifacts →
 6. Di Scheduler, pilih workflow tersimpan dan jadwal. Izinkan notifikasi. UI selalu memerlukan tindakan pengguna dan tidak auto-unlock.
 7. Input manual target: fokuskan kolom draft pada aplikasi yang diizinkan, ketuk bubble, masukkan teks, review target/akun, centang consent lalu **Isi kolom fokus**. SUCCESS hanya setelah nilai field terverifikasi; NOT_FOUND/BLOCKED/UNKNOWN bukan sukses. Jika tidak kompatibel, gunakan Salin/Share manual.
 8. Capture: pilih target yang diizinkan, beri consent aplikasi dan sistem per sesi. Kembali ke Screen Capture/notification untuk preview; jangan berbagi data login/OTP/keuangan. Hapus gambar jika tidak diperlukan. Untuk analisis provider, aktifkan kemampuan Vision pada model yang mendukung gambar, tinjau preview dan consent kedua; request gambar dikirim hanya setelah konfirmasi Anda.
+
+Perbaikan responsivitas 0.6.1 dan langkah uji HP: [RESPONSIVENESS.md](docs/RESPONSIVENESS.md).
 
 ## Build & QA
 

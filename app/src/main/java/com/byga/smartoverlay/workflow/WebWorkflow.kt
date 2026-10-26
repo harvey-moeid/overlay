@@ -40,6 +40,8 @@ object WorkflowBrowserSession {
     @Volatile var visible=false
         internal set
     @Volatile var paused=false
+    var onStatus: ((RunState,String)->Unit)? = null
+    fun report(state:RunState,note:String) { onStatus?.invoke(state,note) }
     var onPauseChanged:((Boolean)->Unit)?=null
     fun changePause(value:Boolean) { paused=value;onPauseChanged?.invoke(value) }
     private var activeRun=false
@@ -49,7 +51,7 @@ object WorkflowBrowserSession {
         check(!resuming) { "Sesi web tidak dapat di-resume dari checkpoint. Periksa hasil di situs lalu mulai workflow baru." }
         activeRun=true; paused=false; chatResponse=""
     }
-    fun end() { activeRun=false;onPauseChanged=null; _command.value?.result?.cancel(); _command.value=null }
+    fun end() { activeRun=false;onStatus=null;onPauseChanged=null; _command.value?.result?.cancel(); _command.value=null }
     fun isActive()=activeRun
     suspend fun execute(context:Context,action:Action,value:String):String {
         check(activeRun && action in WebWorkflowPolicy.actions)

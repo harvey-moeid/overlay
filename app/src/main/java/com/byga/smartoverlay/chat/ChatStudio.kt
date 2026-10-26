@@ -62,7 +62,7 @@ class ChatViewModel(app: Application): AndroidViewModel(app) {
     val vm: ChatViewModel=viewModel()
     val dao=remember { BygaDatabase.get(context).records() }
     val providers by remember { dao.observe("provider") }.collectAsState(initial=emptyList())
-    val history by remember { dao.observe("chat") }.collectAsState(initial=emptyList())
+    val history by remember { dao.recent("chat",20) }.collectAsState(initial=emptyList())
     var providerId by rememberSaveable { mutableStateOf("") }; var input by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(initialPrompt) { if(initialPrompt.isNotBlank()) input=initialPrompt }
     var limitText by rememberSaveable { mutableStateOf("12") }; var fallback by rememberSaveable { mutableStateOf(false) }

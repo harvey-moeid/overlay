@@ -32,7 +32,7 @@ class CaptureService: Service() {
     @Suppress("DEPRECATION")
     override fun onStartCommand(intent: Intent?,flags:Int,startId:Int):Int {
         if(projection!=null){stopSelf();return START_NOT_STICKY}
-        File(cacheDir,"shared").listFiles()?.filter{it.name.startsWith("capture-") && it.name.endsWith(".png") && System.currentTimeMillis()-it.lastModified()>86400000}?.forEach{it.delete()}
+        scope.launch(Dispatchers.IO) { File(cacheDir,"shared").listFiles()?.filter{it.name.startsWith("capture-") && it.name.endsWith(".png") && System.currentTimeMillis()-it.lastModified()>86400000}?.forEach{it.delete()} }
         requested=intent?.getStringExtra("package")?:""
         val consent=intent?.getParcelableExtra<Intent>("consent")
         if(consent==null || requested !in CapturePolicy.packages){stopSelf();return START_NOT_STICKY}
@@ -65,9 +65,9 @@ class CaptureService: Service() {
         reader!!.setOnImageAvailableListener({r->
             val image=runCatching{r.acquireLatestImage()}.getOrNull()?:return@setOnImageAvailableListener
             if(!claimed.compareAndSet(false,true)){image.close();return@setOnImageAvailableListener}
-            if(SafeAccessibilityService.current?.captureAllowed(requested)!=true || getSystemService(WindowManager::class.java).defaultDisplay.rotation!=rotation){image.close();fail("Konteks berubah; capture dibatalkan");return@setOnImageAvailableListener}
             scope.launch {
                 try{
+                    if(SafeAccessibilityService.current?.captureAllowed(requested)!=true || getSystemService(WindowManager::class.java).defaultDisplay.rotation!=rotation){fail("Konteks berubah; capture dibatalkan");return@launch}
                     val file=withContext(Dispatchers.IO){
                         image.use{frame->
                             val plane=frame.planes[0];val paddedWidth=plane.rowStride/plane.pixelStride
@@ -82,7 +82,7 @@ class CaptureService: Service() {
                     val open=PendingIntent.getActivity(this@CaptureService,45,Intent(this@CaptureService,MainActivity::class.java).putExtra("open_capture",true),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                     if(Build.VERSION.SDK_INT<33 || checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)==android.content.pm.PackageManager.PERMISSION_GRANTED) getSystemService(NotificationManager::class.java).notify(45,Notification.Builder(this@CaptureService,"capture").setSmallIcon(android.R.drawable.ic_menu_camera).setContentTitle("Capture siap ditinjau").setContentText("Buka BYGA → Screen Capture. Belum dikirim ke siapa pun.").setContentIntent(open).setAutoCancel(true).build())
                 }catch(_:Exception){fail("Capture gagal disimpan; tidak ada klaim sukses")}
-                finally{stopSelf()}
+                finally{image.close();stopSelf()}
             }
         },Handler(Looper.getMainLooper()))
         display=projection!!.createVirtualDisplay("BYGA-on-demand",w,h,metrics.densityDpi,DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,reader!!.surface,null,null)

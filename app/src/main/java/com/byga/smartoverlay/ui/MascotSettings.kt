@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import com.byga.smartoverlay.R
+import com.byga.smartoverlay.overlay.OverlayAppearance
 import com.byga.smartoverlay.data.settings
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -19,12 +20,13 @@ import kotlin.math.roundToInt
 @Composable fun MascotSettings() {
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
-    val stored by remember { context.settings.data.map { it[intPreferencesKey("bubble_size_dp")] ?: 80 } }.collectAsState(initial=80)
-    var size by remember { mutableFloatStateOf(80f) }
-    LaunchedEffect(stored) { size=stored.coerceIn(56,128).toFloat() }
+    val stored by remember { context.settings.data.map { it[OverlayAppearance.sizeKey] ?: OverlayAppearance.DEFAULT_DP } }.collectAsState(initial=OverlayAppearance.DEFAULT_DP)
+    var size by remember { mutableFloatStateOf(OverlayAppearance.DEFAULT_DP.toFloat()) }
+    LaunchedEffect(stored) { size=OverlayAppearance.visualDp(stored).toFloat() }
     Text("Robot bubble BYGA",style=MaterialTheme.typography.titleMedium)
     Image(painterResource(R.drawable.byga_robot),contentDescription="Preview maskot robot BYGA biru",modifier=Modifier.size(size.dp))
-    Text("Ukuran ${size.roundToInt()} dp • latar transparan. Ketuk panel, geser/dock, tahan untuk Stop.")
-    Slider(value=size,onValueChange={size=it},valueRange=56f..128f,steps=8,onValueChangeFinished={scope.launch { context.settings.edit { it[intPreferencesKey("bubble_size_dp")]=size.roundToInt() } }})
+    Text("Ukuran ${size.roundToInt()} dp • robot kecil, latar transparan. Area ketuk minimal 48 dp. Ketuk panel, geser/dock, tahan untuk Stop.")
+    Slider(value=size,onValueChange={size=it},valueRange=24f..56f,steps=7,onValueChangeFinished={scope.launch { context.settings.edit { it[OverlayAppearance.sizeKey]=size.roundToInt() } }})
+    TextButton(onClick={ scope.launch { context.settings.edit { it[OverlayAppearance.sizeKey]=OverlayAppearance.DEFAULT_DP } } }) { Text("Kembalikan kecil • 28 dp") }
     Text("Ukuran diperbarui saat bubble aktif. Kurangi gerak menonaktifkan animasi dock; gerak masuk juga mengikuti pengaturan animator Android.")
 }

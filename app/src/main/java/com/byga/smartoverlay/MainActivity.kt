@@ -90,12 +90,12 @@ class MainActivity : ComponentActivity() {
             media=uri
             if(uri!=null) runCatching { contentResolver.takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION) }
         }
-        val records by remember(dao) { dao.observe("workflow") }.collectAsState(initial=emptyList())
+        val workflowCount by remember(dao) { dao.count("workflow") }.collectAsState(initial=0)
         val appProfiles by remember(dao) { dao.observe("app") }.collectAsState(initial=emptyList())
-        val accounts by remember(dao) { dao.observe("account") }.collectAsState(initial=emptyList())
+        val accountCount by remember(dao) { dao.count("account") }.collectAsState(initial=0)
         val providers by remember(dao) { dao.observe("provider") }.collectAsState(initial=emptyList())
-        val executions by remember(dao) { dao.observe("execution") }.collectAsState(initial=emptyList())
-        val diagnostics by remember(dao) { dao.observe("diagnostic") }.collectAsState(initial=emptyList())
+        val executions by remember(dao) { dao.recent("execution",20) }.collectAsState(initial=emptyList())
+        val diagnostics by remember(dao) { dao.recent("diagnostic",30) }.collectAsState(initial=emptyList())
         val schedules by remember(dao) { dao.observe("schedule") }.collectAsState(initial=emptyList())
         fun stop() { StudioSessions.stopAll(); AgentSessions.stopAll(); stopService(Intent(this,OverlayService::class.java)); scope.launch { dao.save(Record("audit","last-stop","Pengguna menekan Stop darurat")) } }
         val bubbleRunning by com.byga.smartoverlay.overlay.OverlayRuntime.running.collectAsState()
@@ -135,7 +135,7 @@ class MainActivity : ComponentActivity() {
                                 Button(onClick={ if(overlay) { ContextCompat.startForegroundService(this@MainActivity,Intent(this@MainActivity,OverlayService::class.java)); message="Bubble diminta; verifikasi tampil di HP" } else message="Berikan izin overlay terlebih dahulu" }) { Text("Mulai bubble") }
                             }
                             "Agent Experimental" -> { AgentScreen() }
-                            "Home" -> { Dashboard(overlay,accessibility,providers.size,records.size,accounts.size,bubbleRunning,{tab=it},::toggleBubble) }
+                            "Home" -> { Dashboard(overlay,accessibility,providers.size,workflowCount,accountCount,bubbleRunning,{tab=it},::toggleBubble) }
                             "Chat" -> { ChatStudio(initialPrompt=chatSeed,onDraft={prompt=it;tab="Media & Social"},onNavigateProviders={tab="AI Providers"}) }
                             "Capture" -> { CaptureScreen() }
                             "Studio" -> { PromptLibrary(onChat={chatSeed=it;tab="Chat"},onDraft={prompt=it;tab="Media & Social"}) }
@@ -155,7 +155,7 @@ class MainActivity : ComponentActivity() {
                                 }
                                 OutlinedButton(onClick={runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://labs.google/flow/")))}.onFailure{message="Browser tidak tersedia; buka Flow melalui browser yang terpasang"}}) { Text("Google Flow • web") }
                                 if(appProfiles.isNotEmpty()) SectionTitle("Profil tambahan tersimpan")
-                                appProfiles.forEach { profile -> PremiumCard { Text(profile.body,style=MaterialTheme.typography.titleMedium);Row { TextButton(onClick={runCatching{Handoffs.launch(this@MainActivity,profile.body)}.onSuccess{message=if(it)"Aplikasi dibuka" else "Package tidak terlihat/tersedia; gunakan sharesheet"}.onFailure{message="Aplikasi tidak dapat dibuka"}}){Text("Buka")};TextButton(onClick={scope.launch{dao.delete("app",profile.id)}}){Text("Hapus profil")} } } }
+                                PagedItems(appProfiles) { profile -> PremiumCard { Text(profile.body,style=MaterialTheme.typography.titleMedium);Row { TextButton(onClick={runCatching{Handoffs.launch(this@MainActivity,profile.body)}.onSuccess{message=if(it)"Aplikasi dibuka" else "Package tidak terlihat/tersedia; gunakan sharesheet"}.onFailure{message="Aplikasi tidak dapat dibuka"}}){Text("Buka")};TextButton(onClick={scope.launch{dao.delete("app",profile.id)}}){Text("Hapus profil")} } } }
                                 var custom by remember { mutableStateOf("") }
                                 OutlinedTextField(custom,{custom=it},label={Text("Package aplikasi lain")})
                                 Button(onClick={if(custom.matches(Regex("[a-zA-Z][a-zA-Z0-9_]*([.][a-zA-Z0-9_]+)+"))) { scope.launch { dao.save(Record("app",custom,custom)) }; message=if(Handoffs.launch(this@MainActivity,custom)) "Aplikasi dibuka" else "Package tidak tersedia/terlihat; gunakan sharesheet" } else message="Package tidak valid"}) { Text("Simpan profil & buka") }

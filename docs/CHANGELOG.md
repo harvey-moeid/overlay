@@ -1,3 +1,10 @@
+# 0.6.1 — Responsiveness and compact bubble
+
+- Compact 28dp default robot, 24–56dp setting and 48dp minimum touch target.
+- Non-modal panels, off-main bounded Accessibility scans and encrypted-key storage.
+- Readiness timeout/failure status and bounded library composition.
+- Regression coverage and device smoke-test checklist: [RESPONSIVENESS.md](RESPONSIVENESS.md).
+
 # Changelog
 
 ## 0.6.0-smart-mapping — 26 Oktober 2026

@@ -26,6 +26,10 @@ class WorkflowRunner(private val port: WorkflowPort) {
     fun pause() { if(!running || paused)return; beforePause=_snapshot.value;paused=true; _snapshot.value=_snapshot.value.copy(state=RunState.PAUSED,note="Dijeda oleh pengguna") }
     fun resume() { if(running && paused) { paused=false;_snapshot.value=beforePause } }
     fun refuse(reason:String) { if(!running)_snapshot.value=WorkflowSnapshot(RunState.BLOCKED,note=reason) }
+    fun awaitingApproval() = approval?.isActive == true
+    fun reportBrowserStatus(state:RunState,note:String) {
+        if(running && !stopped && !paused && approval==null) _snapshot.value=_snapshot.value.copy(state=state,note=note)
+    }
     fun approve() { approval?.complete(true) }
     fun stop() { stopped=true; approval?.complete(false); _snapshot.value=_snapshot.value.copy(state=RunState.STOPPED,note="Dihentikan; tidak ada langkah berikutnya") }
     companion object { private val lock=Mutex(); fun hasActiveRun()=lock.isLocked; val supported=setOf(Action.CLICK_MAPPING,Action.COPY_TEXT,Action.DELAY,Action.LAUNCH_APP,Action.GENERATE_AI_TEXT,Action.REQUEST_USER_APPROVAL,Action.DOWNLOAD_URL,Action.STOP)+WebWorkflowPolicy.actions }
