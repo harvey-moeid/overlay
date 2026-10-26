@@ -1,0 +1,1 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android"><item><shape android:shape="rectangle"><solid android:color="#080D19"/><corners android:radius="18dp"/></shape></item><item android:drawable="@drawable/byga_robot" android:left="8dp" android:top="8dp" android:right="8dp" android:bottom="8dp"/></layer-list>

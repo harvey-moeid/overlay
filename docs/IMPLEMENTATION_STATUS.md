@@ -1,3 +1,7 @@
+> Pembaruan 0.6.0: maskot BG/byga, Smart Mapping deteksi/tunjuk, library dan CLICK_MAPPING tersedia. Klik terikat scope dan versi; posisi manual selalu dikonfirmasi. [Panduan dan bukti](SMART_MAPPING.md). Pengujian target asli belum dijalankan.
+
+> Pembaruan 0.5.0: pemilih aplikasi terinstal dan adapter workflow ChatGPT/Flow tersedia, termasuk unggah dan unduh media. Build/fixture tidak membuktikan login atau kompatibilitas situs asli. Lihat [panduan workflow web](WORKFLOW_WEB.md). Status historis Studio di bawah tetap menjadi baseline untuk modul lain.
+
 # Status terhadap PRD — 0.4.0 Studio
 
 Tidak ada klaim final 99,9%. IMPLEMENTED berarti ada kode/alur yang terhubung; keberhasilan runtime hanya jika tercatat pada TEST_MATRIX. Semua aplikasi pihak ketiga tetap memerlukan uji fisik per versi.

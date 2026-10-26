@@ -2,7 +2,7 @@
 
 Asisten produktivitas Android berbahasa Indonesia: dashboard navy/cyan, robot bubble, AI Chat, workflow yang direview, serta studio draft sosial. Orkestrasi dan data berada di HP; provider AI dihubungi langsung melalui HTTPS. Tidak ada backend pribadi, root, Shizuku, atau kebutuhan ADB untuk penggunaan aplikasi.
 
-**Rilis 0.4.0 Studio adalah pengembangan fungsional, bukan klaim PRD selesai 99,9%.** Build/test cloud tidak membuktikan kompatibilitas aplikasi target atau Samsung. Lihat [status PRD](docs/IMPLEMENTATION_STATUS.md) dan [matriks uji](docs/TEST_MATRIX.md). Baseline asli tetap utuh: [PRD v1](docs/PRD.md), [PRD v2](docs/PRD_v2.md).
+**Rilis 0.6.0 Smart Mapping adalah pengembangan fungsional, bukan klaim PRD selesai 99,9%.** Build/test cloud tidak membuktikan kompatibilitas aplikasi target atau Samsung. Lihat [status PRD](docs/IMPLEMENTATION_STATUS.md) dan [matriks uji](docs/TEST_MATRIX.md). Baseline asli tetap utuh: [PRD v1](docs/PRD.md), [PRD v2](docs/PRD_v2.md).
 
 ## Memperoleh APK
 
@@ -11,11 +11,12 @@ Buka **GitHub → Actions → Android Debug APK → run sukses → Artifacts →
 ## Yang dapat digunakan
 
 - **Dashboard & navigasi:** hero robot, status izin/bubble aktual, hitungan data tersimpan, shortcut dan navigasi bawah. Lainnya membuka seluruh workspace. Tombol Stop di toolbar membatalkan chat/workflow/agent/capture dan menutup bubble.
-- **Robot bubble:** PNG transparan, ukuran 56–96dp, drag/dock, panel prompt/clipboard/share, long-press dan notification Stop, serta panel scrollable. Input manual ke kolom fokus di BYGA/ChatGPT/Claude/TikTok/Instagram memakai review teks/akun/target dan permit single-use 10 detik; tidak menekan Kirim. Atur di Settings.
+- **Smart Mapping:** deteksi tombol dan mode tunjuk dari bubble; review Simpan/Uji/Batal, identitas per aplikasi/situs/layar, library lokal, binding versi ke workflow, serta posisi manual dengan konfirmasi wajib. Target awal: ChatGPT native, Chrome ChatGPT/Flow, browser BYGA dan area latihan. [Cara pakai dan batas](docs/SMART_MAPPING.md); kompatibilitas aplikasi nyata masih NEEDS_REAL_DEVICE.
+- **Robot bubble:** maskot BG/byga sesuai referensi, PNG transparan, ukuran 56–128dp, drag/dock, panel prompt/clipboard/share, long-press dan notification Stop, serta panel scrollable. Input manual ke kolom fokus di BYGA/ChatGPT/Claude/TikTok/Instagram memakai review teks/akun/target dan permit single-use 10 detik; tidak menekan Kirim. Atur di Settings.
 - **AI Chat:** provider/model tersimpan, percakapan multi-turn lokal, consent outbound, fallback opsional maksimal tiga provider, batas request harian, cancellation, riwayat/delete, copy dan kirim hasil ke draft sosial. Limit menghitung reservasi percobaan AI Chat/Workflow, bukan biaya dolar; Agent Lab/health test terpisah.
 - **Providers:** OpenAI, Anthropic, Gemini, OpenRouter, Groq, Cohere, Hugging Face, Mistral, NVIDIA NIM, custom HTTPS. Picker model saran/live/manual. API key AES-GCM Android Keystore. [Panduan](docs/PROVIDERS.md).
 - **Prompt Library:** banyak template, tag/search/favorite, edit/copy, gunakan di Chat atau draft. Tidak ada request otomatis saat membuka template.
-- **Workflow Studio:** library/templates, reorder/edit/import/export, dry run, hash approval, runner di ViewModel, pause/resume/stop dan checkpoint. COPY_TEXT, DELAY, LAUNCH_APP, GENERATE_AI_TEXT, DOWNLOAD_URL, REQUEST_USER_APPROVAL, STOP tersedia. Checkpoint tidak pasti tidak boleh replay otomatis; output dipersist privat untuk resume. Aksi DSL lainnya diblokir.
+- **Workflow Studio:** pemilih aplikasi terinstal, editor/template/JSON, dry run, hash review, pause/resume/stop dan checkpoint. Tersedia alur ChatGPT Web (prompt → salin teks atau unduh gambar), Google Flow (proyek → unggah gambar → prompt → generate → unduh video), serta gambar ChatGPT → video Flow. Browser BYGA memakai sesi akun situs; login/mode/crop mungkin perlu manual dan login WebView dapat ditolak. Adapter situs asli masih NEEDS_REAL_DEVICE. [Panduan dan batas workflow](docs/WORKFLOW_WEB.md). Aksi lokal/provider sebelumnya tetap tersedia; checkpoint web tidak di-resume otomatis.
 - **Accounts:** package/label/alias, guided launch untuk switch/login resmi, status UNKNOWN/NEEDS_LOGIN/USER_CONFIRMED. Konfirmasi pengguna berlaku 5 menit dan bukan deteksi akun otomatis.
 - **Media & Social:** SAF picker, preview gambar, caption/hashtag, library draft, account binding, review dialog dan targeted sharesheet Instagram/TikTok. HANDED_OFF **bukan PUBLISHED**; final posting tetap oleh pengguna di app tujuan.
 - **Downloads:** URL HTTPS langsung, batas 50MB, MIME/signature check, MediaStore pending/file verification. Login/redirect/format tak didukung ditolak.
@@ -49,7 +50,7 @@ Cloud snapshot: `./scripts/cloud-build.sh testDebugUnitTest assembleDebug assemb
 
 `./gradlew connectedDebugAndroidTest` memerlukan emulator/HP QA, bukan bagian unit test biasa. Storage/Keystore/migration, atomic request-budget dan native UI smoke tests disediakan. UI test menulis screenshot di app external files khusus perangkat uji. Jangan jalankan pada perangkat dengan data produksi tanpa meninjau efek test.
 
-Dokumentasi: [rilis Studio](docs/STUDIO_ARCHITECTURE.md), [keamanan/privasi](docs/PRIVACY.md), [status implementasi](docs/IMPLEMENTATION_STATUS.md), [kompatibilitas](docs/COMPATIBILITY.md), [changelog](docs/CHANGELOG.md).
+Dokumentasi: [Smart Mapping dan logo](docs/SMART_MAPPING.md), [workflow aplikasi/ChatGPT/Flow](docs/WORKFLOW_WEB.md), [rilis Studio](docs/STUDIO_ARCHITECTURE.md), [keamanan/privasi](docs/PRIVACY.md), [status implementasi](docs/IMPLEMENTATION_STATUS.md), [kompatibilitas](docs/COMPATIBILITY.md), [changelog](docs/CHANGELOG.md).
 
 ## Preview UI dari kode Compose
 

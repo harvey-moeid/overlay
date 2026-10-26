@@ -21,13 +21,14 @@ class WorkflowRunner(private val port: WorkflowPort) {
     private var running=false
     private var paused=false
     private var stopped=false
+    private var beforePause=WorkflowSnapshot()
     private var approval: CompletableDeferred<Boolean>?=null
-    fun pause() { if(!running)return; paused=true; _snapshot.value=_snapshot.value.copy(state=RunState.PAUSED,note="Dijeda oleh pengguna") }
-    fun resume() { if(running)paused=false }
+    fun pause() { if(!running || paused)return; beforePause=_snapshot.value;paused=true; _snapshot.value=_snapshot.value.copy(state=RunState.PAUSED,note="Dijeda oleh pengguna") }
+    fun resume() { if(running && paused) { paused=false;_snapshot.value=beforePause } }
     fun refuse(reason:String) { if(!running)_snapshot.value=WorkflowSnapshot(RunState.BLOCKED,note=reason) }
     fun approve() { approval?.complete(true) }
     fun stop() { stopped=true; approval?.complete(false); _snapshot.value=_snapshot.value.copy(state=RunState.STOPPED,note="Dihentikan; tidak ada langkah berikutnya") }
-    companion object { private val lock=Mutex(); val supported=setOf(Action.COPY_TEXT,Action.DELAY,Action.LAUNCH_APP,Action.GENERATE_AI_TEXT,Action.REQUEST_USER_APPROVAL,Action.DOWNLOAD_URL,Action.STOP) }
+    companion object { private val lock=Mutex(); fun hasActiveRun()=lock.isLocked; val supported=setOf(Action.CLICK_MAPPING,Action.COPY_TEXT,Action.DELAY,Action.LAUNCH_APP,Action.GENERATE_AI_TEXT,Action.REQUEST_USER_APPROVAL,Action.DOWNLOAD_URL,Action.STOP)+WebWorkflowPolicy.actions }
     suspend fun run(plan: Plan, approvedHash: String?, checkpoint: SavedCheckpoint?=null) {
         if(!Guard.canRun(plan,approvedHash) || (checkpoint!=null && !CheckpointPolicy.mayResume(plan,checkpoint))) { _snapshot.value=WorkflowSnapshot(RunState.BLOCKED,note="Review versi atau checkpoint tidak valid/hasil sebelumnya tidak pasti"); return }
         if(!lock.tryLock()) { _snapshot.value=WorkflowSnapshot(RunState.BLOCKED,note="Workflow lain masih aktif"); return }
@@ -56,13 +57,14 @@ class WorkflowRunner(private val port: WorkflowPort) {
                     // Persist uncertainty before external side effects. Process death cannot blindly replay this step.
                     port.checkpoint(plan,i,true,output)
                     if(stopped)return
-                    output=withTimeout(120000){port.act(step,output)}
+                    output=withTimeout(if(step.action in WebWorkflowPolicy.actions || step.action==Action.CLICK_MAPPING)600000L else 120000L){port.act(step,output)}
                 }
                 if(stopped)return
                 port.checkpoint(plan,i+1,false,output)
             }
-            if(!stopped) { port.checkpoint(plan,plan.steps.size,false,output); _snapshot.value=_snapshot.value.copy(state=RunState.SUCCEEDED,index=plan.steps.size,note="Semua langkah yang didukung selesai",output=output) }
-        } catch(e: CancellationException) { stop(); throw e }
+            if(!stopped) { port.checkpoint(plan,plan.steps.size,false,output); _snapshot.value=_snapshot.value.copy(state=RunState.SUCCEEDED,index=plan.steps.size,note=if(plan.steps.any{it.action==Action.CLICK_MAPPING})"Semua perintah klik dikirim satu kali; periksa hasil di aplikasi tujuan" else "Semua langkah yang didukung selesai",output=output) }
+        } catch(e: TimeoutCancellationException) { _snapshot.value=_snapshot.value.copy(state=RunState.BLOCKED,note="Batas waktu langkah tercapai. Periksa hasil di aplikasi/situs sebelum memulai ulang; aksi tidak diulang otomatis.") }
+        catch(e: CancellationException) { stop(); throw e }
         catch(e: Exception) { _snapshot.value=_snapshot.value.copy(state=RunState.BLOCKED,note=e.message ?: "Langkah gagal; cek hasil manual sebelum retry") }
         finally { running=false; approval=null; lock.unlock() }
     }

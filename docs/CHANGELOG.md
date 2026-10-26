@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.6.0-smart-mapping — 26 Oktober 2026
+
+Validasi lokal: 191/191 tes JVM, fixture Chromium offline, build APK/instrumentation dan lint lulus; signature debug v2 valid. Tidak ada perangkat tersambung; interaksi aplikasi asli belum diuji.
+
+- Maskot BG/byga transparan sesuai referensi pada launcher adaptif, header, dashboard, Settings dan bubble 56–128dp.
+- Smart Mapping: deteksi, tunjuk tanpa meneruskan sentuhan, sorot target, pertanyaan Simpan/Uji/Batal, library lokal, aktif/nonaktif/edit/hapus dan area latihan.
+- Identitas tombol per package/situs/layar; kandidat kembar ditolak untuk replay semantik. Fallback posisi selalu dikonfirmasi dan terikat geometri/orientasi/layout.
+- Aksi CLICK_MAPPING memakai fingerprint versi mapping serta permit sekali pakai, origin/window/lock checks, pause/Stop dan checkpoint tanpa retry. CLICK_ACCEPTED bukan bukti hasil Generate/Download.
+- [Panduan, batas dan penerimaan](SMART_MAPPING.md). Agent Lab tidak diberi akses raw klik baru; uji akun/HP asli belum dijalankan.
+
+## 0.5.0-workflow — 26 Oktober 2026
+
+Validasi lokal: 154/154 tes JVM, fixture Chromium offline, build APK/instrumentation dan lint lulus. Signature debug v2 valid. Uji perangkat/akun asli belum dijalankan.
+
+- Pemilih aplikasi terinstal dengan pencarian pada editor workflow dan Apps; query Android hanya aplikasi launcher pada profil aktif.
+- Browser workflow pada halaman resmi ChatGPT/Flow, template prompt → pengambilan teks/gambar, proyek → unggah gambar → generate → video, serta gambar ChatGPT → Flow. Sesi login lokal terpisah dari aplikasi native.
+- SAF gambar, izin baca persisten, upload terikat langkah, pemeriksaan MIME/signature/ukuran, transfer media sesi/blob bertahap dan MediaStore terverifikasi.
+- Aksi Kirim/Generate satu kali diikuti observasi; timeout 10 menit, pause/Stop/lock/foreground gates, tanpa resume sesi web sesudah proses mati.
+- Login WebView dan perubahan tampilan situs dapat menghalangi alur; belum diuji pada akun/HP asli. Detail, cara pakai dan penerimaan: [WORKFLOW_WEB.md](WORKFLOW_WEB.md).
+
 ## 0.4.0-studio — 25 Oktober 2026
 
 ### Implementasi

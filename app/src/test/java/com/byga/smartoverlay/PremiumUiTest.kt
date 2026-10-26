@@ -42,4 +42,21 @@ class PremiumUiTest {
         compose.onNodeWithText("Hubungkan provider pertama").assertExists()
         screenshot("byga-chat.png")
     }
+    @Test fun workflowTemplatesAndInstalledAppStep(){
+        compose.onNodeWithText("Alur").performClick()
+        compose.onNode(hasText("ChatGPT → prompt → salin teks / unduh gambar") and hasSetTextAction().not()).assertExists()
+        screenshot("byga-workflows.png")
+        compose.onNodeWithText("Buka aplikasi terinstal").performScrollTo().performClick()
+        compose.onNodeWithText("Pilih aplikasi terinstal").performScrollTo()
+        compose.onNodeWithText("Belum memilih aplikasi").assertExists()
+        screenshot("byga-app-step.png")
+    }
+    @Test fun smartMappingRouteAndPracticeButton(){
+        compose.onNodeWithText("Smart Mapping").performScrollTo().performClick()
+        compose.onNodeWithText("Kenali tombol.\nRangkai tindakan.").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Logo robot BYGA BG").assertExists()
+        screenshot("byga-mapping.png")
+        compose.onNodeWithText("Tombol latihan").performScrollTo().performClick()
+        compose.onNodeWithText("Ditekan 1 kali").assertExists()
+    }
 }

@@ -20,7 +20,9 @@ object Handoffs {
         context.startActivity(Intent.createChooser(intent,"Bagikan draft • belum dipublikasikan").apply { if(context !is Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
     }
     fun launch(context: Context, pkg: String): Boolean {
-        val intent=context.packageManager.getLaunchIntentForPackage(pkg) ?: return false
-        context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true
+        return runCatching {
+            val intent=context.packageManager.getLaunchIntentForPackage(pkg) ?: return false
+            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));true
+        }.getOrDefault(false)
     }
 }

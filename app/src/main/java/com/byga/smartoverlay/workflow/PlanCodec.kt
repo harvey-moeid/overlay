@@ -14,8 +14,21 @@ object WorkflowCodec {
         }).also { require(it.validate().isEmpty()) }
     }
     val templates=listOf(
-        Plan("Caption AI → tinjau → salin",listOf(Step(Action.GENERATE_AI_TEXT,"Buat 3 caption Indonesia singkat untuk video produktivitas."),Step(Action.REQUEST_USER_APPROVAL,"Tinjau teks hasil AI sebelum disalin."),Step(Action.COPY_TEXT,"{{output}}"))),
-        Plan("Prompt Flow → salin → buka browser",listOf(Step(Action.COPY_TEXT,"Video sinematik cahaya pagi, kamera bergerak perlahan."),Step(Action.REQUEST_USER_APPROVAL,"Teks siap. Buka Flow secara manual dari Apps."))),
-        Plan("Siapkan prompt ChatGPT",listOf(Step(Action.COPY_TEXT,"Bantu buat tiga ide konten yang relevan untuk audiens Indonesia."),Step(Action.LAUNCH_APP,packageName="com.openai.chatgpt")))
+        Plan("ChatGPT → prompt → salin teks / unduh gambar",listOf(
+            Step(Action.OPEN_CHATGPT),
+            Step(Action.CHATGPT_SEND_PROMPT,"Bantu buat tiga ide konten yang relevan untuk audiens Indonesia."),
+            Step(Action.CHATGPT_COLLECT_RESULT))),
+        Plan("Flow → unggah gambar → generate → unduh video",listOf(
+            Step(Action.OPEN_FLOW),Step(Action.FLOW_CREATE_PROJECT),Step(Action.FLOW_UPLOAD_IMAGE),
+            Step(Action.FLOW_SET_PROMPT,"Video sinematik cahaya pagi, kamera bergerak perlahan. Pertahankan karakter pada gambar."),
+            Step(Action.FLOW_GENERATE),Step(Action.FLOW_DOWNLOAD_VIDEO))),
+        Plan("ChatGPT gambar → Flow → video",listOf(
+            Step(Action.OPEN_CHATGPT),Step(Action.CHATGPT_SEND_PROMPT,"Buat gambar seekor robot biru lucu di taman pada pagi hari, format landscape."),
+            Step(Action.CHATGPT_DOWNLOAD_IMAGE),Step(Action.OPEN_FLOW),Step(Action.FLOW_CREATE_PROJECT),
+            Step(Action.FLOW_UPLOAD_IMAGE,"{{output}}"),
+            Step(Action.FLOW_SET_PROMPT,"Animasikan robot melambaikan tangan, kamera bergerak perlahan, cahaya pagi lembut."),
+            Step(Action.FLOW_GENERATE),Step(Action.FLOW_DOWNLOAD_VIDEO))),
+        Plan("Buka aplikasi terinstal",listOf(Step(Action.LAUNCH_APP))),
+        Plan("Caption AI → tinjau → salin",listOf(Step(Action.GENERATE_AI_TEXT,"Buat 3 caption Indonesia singkat untuk video produktivitas."),Step(Action.REQUEST_USER_APPROVAL,"Tinjau teks hasil AI sebelum disalin."),Step(Action.COPY_TEXT,"{{output}}")))
     )
 }
