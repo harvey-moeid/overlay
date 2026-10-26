@@ -1,4 +1,3 @@
-# Temporary diagnostic replay of the already-built APK; restore the full build before completion.
 name: Android Optimized APK and Runtime QA
 on:
   push:
@@ -18,7 +17,7 @@ permissions:
   actions: read
 jobs:
   build:
-    if: ${{ false }}
+    if: ${{ inputs.artifact_run == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -71,7 +70,6 @@ jobs:
           if-no-files-found: ignore
 
   browser-contract:
-    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -91,7 +89,7 @@ jobs:
 
   android-runtime:
     needs: build
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && (needs.build.result == 'success' || inputs.artifact_run != '') }}
     strategy:
       fail-fast: false
       matrix:
@@ -113,7 +111,7 @@ jobs:
         with:
           name: runtime-apks
           path: runtime-apks
-          run-id: 40354116341
+          run-id: ${{ inputs.artifact_run || github.run_id }}
           github-token: ${{ github.token }}
       - name: Enable emulator acceleration
         run: |
