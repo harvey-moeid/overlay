@@ -28,6 +28,7 @@ Regression coverage includes outside-touch flags with keyboard focus preserved, 
 ## Follow-up after device stutter report
 
 - The installable artifact is now the non-debuggable optimized variant with R8/resource shrinking, rather than a development APK. It uses test/debug signing for private installation; official distribution needs an owner-managed signing key.
+- Crossing raw-screen touch slop cancels GestureDetector long-press detection, because local coordinates move with the bubble window. A long drag cannot accidentally trigger emergency Stop; a stationary hold still stops it.
 - Bubble motion is coalesced with `postOnAnimation`: even 500 input updates before a frame produce one window update using the latest position. No idle frame loop runs. Drag uses Android touch slop, avoids repeated display-metric queries, and docks without overshoot.
 - Opening the quick panel performs no Accessibility or package-manager lookup. The reviewed-input action resolves its target only after the user explicitly chooses it. Its entire job, including the delayed action, is cancelled by global Stop.
 - Robot images in the app and overlay share a bounded 2MB cache and are sampled/decoded off Main. Settings changes unrelated to size do not reload the icon.

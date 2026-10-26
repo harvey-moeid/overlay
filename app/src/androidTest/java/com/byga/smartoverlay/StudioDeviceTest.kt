@@ -15,16 +15,20 @@ import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class StudioDeviceTest {
-    // Use a real vertical gesture: Compose pages can contain horizontal scrollers too.
+    // Real, slow gestures handle nested Compose scrollers and avoid skipping a button in a fling.
     private fun scrollTo(device:UiDevice,selector:BySelector):UiObject2 {
-        repeat(28) {
-            device.findObject(selector)?.let { node ->
+        for(direction in listOf(-1,1,-1))repeat(16) {
+            device.wait(Until.findObject(selector),300)?.let { node ->
                 val bounds=node.visibleBounds
                 if(bounds.width()>0 && bounds.height()>0 && bounds.centerY()<device.displayHeight*0.84)return node
             }
-            device.swipe(device.displayWidth/2,device.displayHeight*4/5,device.displayWidth/2,device.displayHeight/4,30)
+            val low=device.displayHeight*3/4;val high=device.displayHeight*2/5
+            device.swipe(device.displayWidth/2,if(direction<0)low else high,device.displayWidth/2,if(direction<0)high else low,100)
             device.waitForIdle()
         }
+        val dir=InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null)
+        device.dumpWindowHierarchy(File(dir,"scroll-failure.xml"))
+        device.takeScreenshot(File(dir,"scroll-failure.png"))
         throw AssertionError("Visible scroll target not found: $selector")
     }
     @Test fun smartMappingRouteAndPracticeButton(){

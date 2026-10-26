@@ -31,6 +31,13 @@ class PerformanceDeviceTest {
         val frames=UiPerformance.frames.snapshot()
         File(context.getExternalFilesDir(null),"scroll-gfxinfo.txt").writeText(device.executeShellCommand("dumpsys gfxinfo ${context.packageName} framestats"))
 
+        val report=JSONObject().put("version",BuildConfig.VERSION_NAME).put("buildType",BuildConfig.BUILD_TYPE)
+            .put("widthPixels",device.displayWidth).put("heightPixels",device.displayHeight)
+            .put("frames",frames.frames).put("over32ms",frames.over32ms).put("frozen",frames.frozen)
+            .put("p95ms",frames.p95ms).put("maxMs",frames.maxMs)
+        File(context.getExternalFilesDir(null),"performance-smoke.json").writeText(report.toString(2))
+
+        val chatBounds=checkNotNull(device.findObject(By.text("Chat"))).visibleBounds
         device.executeShellCommand("appops set ${context.packageName} SYSTEM_ALERT_WINDOW allow")
         var panelMs=0L
         try {
@@ -39,7 +46,7 @@ class PerformanceDeviceTest {
             assertTrue("Bubble attached",device.wait(Until.hasObject(selector),10_000))
             repeat(5) {
                 val bounds=device.findObject(selector).visibleBounds
-                device.swipe(bounds.centerX(),bounds.centerY(),device.displayWidth*3/4,device.displayHeight/3,90)
+                device.swipe(bounds.centerX(),bounds.centerY(),device.displayWidth*3/4,device.displayHeight/3,180)
                 device.waitForIdle()
                 assertNotNull("Bubble remains after drag",device.findObject(selector))
             }
@@ -47,14 +54,15 @@ class PerformanceDeviceTest {
             device.findObject(selector).click()
             assertTrue("Quick panel opens without accessibility scan",device.wait(Until.hasObject(By.text("BYGA  /  QUICK STUDIO")),3000))
             panelMs=SystemClock.elapsedRealtime()-start
-            device.findObject(By.text("Chat")).click()
+            device.takeScreenshot(File(context.getExternalFilesDir(null),"byga-quick-panel.png"))
+            // A focusable overlay owns the accessibility root; tap the underlying nav location.
+            device.click(chatBounds.centerX(),chatBounds.centerY())
             assertTrue("Outside touch reaches the app",device.wait(Until.hasObject(By.textContains("Dari ide ke draft.")),5000))
             assertTrue("Outside tap closes panel",device.wait(Until.gone(By.text("BYGA  /  QUICK STUDIO")),3000))
+            device.findObject(selector).longClick()
+            assertTrue("A deliberate stationary long press still stops the bubble",device.wait(Until.gone(selector),5000))
         } finally { context.stopService(Intent(context,OverlayService::class.java)) }
-        val report=JSONObject().put("version",BuildConfig.VERSION_NAME).put("buildType",BuildConfig.BUILD_TYPE)
-            .put("widthPixels",device.displayWidth).put("heightPixels",device.displayHeight)
-            .put("frames",frames.frames).put("over32ms",frames.over32ms).put("frozen",frames.frozen)
-            .put("p95ms",frames.p95ms).put("maxMs",frames.maxMs).put("quickPanelMs",panelMs)
+        report.put("quickPanelMs",panelMs)
         File(context.getExternalFilesDir(null),"performance-smoke.json").writeText(report.toString(2))
         assertTrue("Real frame samples were received: $frames",frames.frames>=10)
         assertEquals("No frozen frame during warmed scrolling: $frames",0L,frames.frozen)
