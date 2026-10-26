@@ -1,5 +1,6 @@
 package com.byga.smartoverlay.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -20,11 +21,11 @@ import kotlin.math.roundToInt
 @Composable fun MascotSettings() {
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
-    val stored by remember { context.settings.data.map { it[OverlayAppearance.sizeKey] ?: OverlayAppearance.DEFAULT_DP } }.collectAsState(initial=OverlayAppearance.DEFAULT_DP)
+    val stored by remember { context.settings.data.map { it[OverlayAppearance.sizeKey] ?: OverlayAppearance.DEFAULT_DP } }.collectAsStateWithLifecycle(initialValue=OverlayAppearance.DEFAULT_DP)
     var size by remember { mutableFloatStateOf(OverlayAppearance.DEFAULT_DP.toFloat()) }
     LaunchedEffect(stored) { size=OverlayAppearance.visualDp(stored).toFloat() }
     Text("Robot bubble BYGA",style=MaterialTheme.typography.titleMedium)
-    Image(painterResource(R.drawable.byga_robot),contentDescription="Preview maskot robot BYGA biru",modifier=Modifier.size(size.dp))
+    RobotImage(size.dp,"Preview maskot robot BYGA biru",Modifier.size(size.dp))
     Text("Ukuran ${size.roundToInt()} dp • robot kecil, latar transparan. Area ketuk minimal 48 dp. Ketuk panel, geser/dock, tahan untuk Stop.")
     Slider(value=size,onValueChange={size=it},valueRange=24f..56f,steps=7,onValueChangeFinished={scope.launch { context.settings.edit { it[OverlayAppearance.sizeKey]=size.roundToInt() } }})
     TextButton(onClick={ scope.launch { context.settings.edit { it[OverlayAppearance.sizeKey]=OverlayAppearance.DEFAULT_DP } } }) { Text("Kembalikan kecil • 28 dp") }

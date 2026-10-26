@@ -1,5 +1,6 @@
 package com.byga.smartoverlay.profiles
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -15,7 +16,7 @@ import java.util.UUID
 
 @Composable fun AccountsScreen() {
     val context=LocalContext.current; val scope=rememberCoroutineScope(); val dao=remember{BygaDatabase.get(context).records()}
-    val rows by remember{dao.observe("account")}.collectAsState(initial=emptyList())
+    val rows by remember{dao.observe("account")}.collectAsStateWithLifecycle(initialValue=emptyList())
     var packageName by remember{mutableStateOf(targetApps.last().packageName)}; var label by remember{mutableStateOf("")}; var alias by remember{mutableStateOf("")}; var editId by remember{mutableStateOf<String?>(null)}
     var message by remember{mutableStateOf("")}; var confirm by remember{mutableStateOf<AccountProfile?>(null)}
     PremiumCard { Eyebrow("Know your destination"); Text("Satu akun.\nTujuan yang tepat.",style=MaterialTheme.typography.headlineSmall); Text("Profil hanya menyimpan label dan handle publik. Login dan perpindahan akun tetap lewat menu resmi aplikasi.",color=Muted) }

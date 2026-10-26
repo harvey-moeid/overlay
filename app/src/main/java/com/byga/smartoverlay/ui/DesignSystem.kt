@@ -74,7 +74,7 @@ val destinations=listOf(
             Text("Buat konten, rangkai workflow, dan bawa draft ke aplikasi favorit.",style=MaterialTheme.typography.bodyMedium,color=Color(0xFFBECFEA))
             Button(onClick={onNavigate("Chat")},colors=ButtonDefaults.buttonColors(containerColor=Color(0xFF246BFD))) { Text("Mulai berkarya"); Icon(Icons.AutoMirrored.Filled.ArrowForward,null,modifier=Modifier.padding(start=8.dp).size(18.dp)) }
         }
-        Image(painterResource(R.drawable.byga_robot),"Maskot BYGA",Modifier.align(Alignment.CenterEnd).offset(x=16.dp,y=(-2).dp).size(124.dp))
+        RobotImage(124.dp,"Maskot BYGA",Modifier.align(Alignment.CenterEnd).offset(x=16.dp,y=(-2).dp).size(124.dp))
     }
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
         listOf("$providerCount" to "Provider","$workflowCount" to "Workflow","$accountCount" to "Akun").forEach { (n,label) -> Card(Modifier.weight(1f),border=BorderStroke(1.dp,Line),colors=CardDefaults.cardColors(containerColor=Color(0xFF101B2D))) { Column(Modifier.padding(14.dp)) { Text(n,style=MaterialTheme.typography.headlineSmall,color=Cyan); Text(label,color=Muted,style=MaterialTheme.typography.labelMedium) } } }

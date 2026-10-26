@@ -1,5 +1,6 @@
 package com.byga.smartoverlay.capture
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.net.Uri
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -21,7 +22,7 @@ import java.io.ByteArrayOutputStream
 
 @Composable fun VisionReview(uri:Uri,captureId:String){
     val context=LocalContext.current;val scope=rememberCoroutineScope();val dao=remember{BygaDatabase.get(context).records()}
-    val all by remember{dao.observe("provider")}.collectAsState(initial=emptyList())
+    val all by remember{dao.observe("provider")}.collectAsStateWithLifecycle(initialValue=emptyList())
     val providers=all.filter{runCatching{val j=JSONObject(it.body);j.optBoolean("vision",false)&&j.optString("type")!="COHERE"}.getOrDefault(false)}
     var selected by remember{mutableStateOf("")};var question by remember(uri){mutableStateOf("Jelaskan layar ini secara ringkas dalam Bahasa Indonesia. Jangan mengusulkan atau mengklaim eksekusi aksi apa pun.")}
     var consent by remember(uri,selected){mutableStateOf(false)};var confirm by remember{mutableStateOf(false)};var busy by remember{mutableStateOf(false)};var answer by remember(uri){mutableStateOf("")};var job by remember{mutableStateOf<Job?>(null)}

@@ -6,14 +6,14 @@ import com.byga.smartoverlay.agent.AgentSessions
 import android.app.*
 import android.content.Intent
 import android.content.res.Configuration
-import android.graphics.BitmapFactory
+import com.byga.smartoverlay.ui.RobotBitmaps
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.IBinder
 import android.provider.Settings
 import android.view.*
-import android.view.animation.OvershootInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
 import android.widget.CheckBox
 import android.widget.ScrollView
@@ -44,16 +44,24 @@ class OverlayService : Service() {
     private val serviceScope=CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
     private var reducedMotion=false
     private val smartMapping by lazy { com.byga.smartoverlay.mapping.MappingOverlay(this,serviceScope,{closePanel()},{visible->bubble?.visibility=if(visible)View.VISIBLE else View.INVISIBLE}) }
-    private var panelJob: Job? = null
+    private var manualInputJob: Job? = null
+    private var iconPixels=0
+    private var screenWidth=0
+    private var screenHeight=0
+    private var lastGeometry:List<Int>?=null
+    private val frameUpdates=FrameUpdateGate({bubble?.postOnAnimation(it)},{bubble?.removeCallbacks(it)},{applyWindowPosition()})
     private var iconJob: Job? = null
-    private val manualHandler=Handler(Looper.getMainLooper())
+    private fun stopPendingInput() { manualInputJob?.cancel();manualInputJob=null;closePanel() }
     override fun onCreate() {
         super.onCreate()
-        StudioSessions.register("manual-input"){manualHandler.removeCallbacksAndMessages(null);smartMapping.stop()}
+        StudioSessions.register("manual-input"){stopPendingInput();smartMapping.stop()}
         serviceScope.launch { settings.data.collect {
             reducedMotion=it[booleanPreferencesKey("reduced_motion")] ?: false
-            bubbleSizeDp=OverlayAppearance.visualDp(it[OverlayAppearance.sizeKey] ?: OverlayAppearance.DEFAULT_DP)
-            if(bubble!=null) { params.width=size; params.height=size; resizeIcon(); clamp(); update() }
+            val nextSize=OverlayAppearance.visualDp(it[OverlayAppearance.sizeKey] ?: OverlayAppearance.DEFAULT_DP)
+            if(bubbleSizeDp!=nextSize) {
+                bubbleSizeDp=nextSize
+                if(bubble!=null) { params.width=size; params.height=size; resizeIcon(); clamp(); update() }
+            }
         } }
     }
     private lateinit var wm: WindowManager
@@ -79,7 +87,7 @@ class OverlayService : Service() {
     }
     private fun show() {
         wm=getSystemService(WindowManager::class.java)
-        params=WindowManager.LayoutParams(size,size,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,PixelFormat.TRANSLUCENT).apply { gravity=Gravity.TOP or Gravity.LEFT; x=0; y=200 }
+        params=WindowManager.LayoutParams(size,size,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,PixelFormat.TRANSLUCENT).apply { gravity=Gravity.TOP or Gravity.LEFT; x=0; y=200 }
         val view=object : ImageView(this) {
             override fun performClick(): Boolean { super.performClick(); togglePanel(); return true }
             override fun performLongClick(): Boolean { StudioSessions.stopAll(); AgentSessions.stopAll(); stopSelf(); return true }
@@ -96,80 +104,49 @@ class OverlayService : Service() {
             override fun onSingleTapUp(e: android.view.MotionEvent) = true
             override fun onLongPress(e: android.view.MotionEvent) { longPressed=true; view.performLongClick() }
         })
+        screenWidth=resources.displayMetrics.widthPixels;screenHeight=resources.displayMetrics.heightPixels
+        val touchSlop=ViewConfiguration.get(this).scaledTouchSlop
         var startX=0; var startY=0; var touchX=0f; var touchY=0f; var dragged=false
         view.setOnTouchListener { _, event ->
             when(event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { animator?.cancel(); startX=params.x; startY=params.y; touchX=event.rawX; touchY=event.rawY; dragged=false; longPressed=false; detector.onTouchEvent(event) }
+                MotionEvent.ACTION_DOWN -> { animator?.cancel(); frameUpdates.cancel(); startX=params.x; startY=params.y; touchX=event.rawX; touchY=event.rawY; dragged=false; longPressed=false; detector.onTouchEvent(event) }
                 MotionEvent.ACTION_MOVE -> {
                     detector.onTouchEvent(event)
-                    if (kotlin.math.abs(event.rawX-touchX)+kotlin.math.abs(event.rawY-touchY)>12) dragged=true
+                    if (kotlin.math.abs(event.rawX-touchX)+kotlin.math.abs(event.rawY-touchY)>touchSlop) dragged=true
                     if (dragged) { params.x=(startX+event.rawX-touchX).toInt(); params.y=(startY+event.rawY-touchY).toInt(); clamp(); update() }
                 }
-                MotionEvent.ACTION_UP -> { detector.onTouchEvent(event); if(!dragged && !longPressed) view.performClick(); if(!longPressed) dock() }
-                MotionEvent.ACTION_CANCEL -> dock()
+                MotionEvent.ACTION_UP -> { detector.onTouchEvent(event); if(!dragged && !longPressed) view.performClick(); if(dragged && !longPressed) { frameUpdates.flush();dock() } }
+                MotionEvent.ACTION_CANCEL -> { frameUpdates.flush();if(dragged)dock() }
             }; true
         }
         try { wm.addView(view,params); bubble=view; resizeIcon(); OverlayRuntime.setRunning(true)
-            if(!reducedMotion) { view.scaleX=0.82f; view.scaleY=0.82f; view.animate().scaleX(1f).scaleY(1f).setDuration(300).setInterpolator(OvershootInterpolator(0.8f)).start() }
         } catch (_: Exception) { stopSelf() }
     }
     private fun closePanel() {
-        panelJob?.cancel(); panelJob=null
         panel?.let { runCatching { wm.removeView(it) } }; panel=null
     }
     private fun togglePanel() {
-        if(panel!=null || panelJob?.isActive==true) { closePanel(); return }
-        panelJob=serviceScope.launch {
-            try {
-                val target=SafeAccessibilityService.current?.foregroundPackage() ?: ""
-                val targetField=SafeAccessibilityService.current?.focusedFieldFingerprint(target) ?: ""
-                ensureActive()
-                showPanel(target,targetField)
-            } catch(e:CancellationException){throw e} catch(_:Exception){Toast.makeText(this@OverlayService,"Panel belum siap. Coba lagi.",Toast.LENGTH_SHORT).show()}
-        }
+        manualInputJob?.cancel();manualInputJob=null
+        if(panel!=null) { closePanel();return }
+        showPanel()
     }
     private fun resizeIcon() {
         val view=bubble ?: return
         val padding=((size-bubbleSizeDp*resources.displayMetrics.density)/2).toInt().coerceAtLeast(0)
         view.setPadding(padding,padding,padding,padding)
-        iconJob?.cancel()
         val pixels=(bubbleSizeDp*resources.displayMetrics.density).toInt().coerceAtLeast(1)
-        iconJob=serviceScope.launch {
-            val bitmap=withContext(Dispatchers.IO) {
-                val bounds=BitmapFactory.Options().apply{inJustDecodeBounds=true}
-                BitmapFactory.decodeResource(resources,R.drawable.byga_robot,bounds)
-                var sample=1
-                while(bounds.outWidth/(sample*2)>=pixels)sample*=2
-                BitmapFactory.decodeResource(resources,R.drawable.byga_robot,BitmapFactory.Options().apply{inSampleSize=sample})
-            }
-            view.setImageBitmap(bitmap)
-        }
+        if(iconPixels==pixels)return
+        iconPixels=pixels;iconJob?.cancel()
+        iconJob=serviceScope.launch { view.setImageBitmap(RobotBitmaps.load(this@OverlayService,pixels)) }
     }
-    private fun showPanel(target:String,targetField:String) {
+    private fun showPanel() {
         val layout=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(18,18,18,18); setBackgroundColor(Color.rgb(8,13,25)) }
         val heading=TextView(this).apply{text="BYGA  /  QUICK STUDIO";setTextColor(Color.rgb(114,232,226));textSize=16f;setPadding(8,8,8,16)}
         layout.addView(heading)
         val input=EditText(this).apply { hint="Tulis prompt atau draft…"; setTextColor(Color.WHITE); setHintTextColor(Color.rgb(156,170,198)); textSize=14f; maxLines=4; minLines=2;contentDescription="Prompt bubble";inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE;setPadding(18,18,18,18);background=GradientDrawable().apply{setColor(Color.rgb(22,34,57));cornerRadius=24f} }
         layout.addView(input)
         fun button(label: String, action: () -> Unit) { layout.addView(Button(this).apply { text=label;isAllCaps=false;setTextColor(Color.WHITE);backgroundTintList=ColorStateList.valueOf(if(label.startsWith("STOP"))Color.rgb(109,39,61) else Color.rgb(31,62,119));setOnClickListener { action() } }) }
-        val targetLabel=runCatching{packageManager.getApplicationLabel(packageManager.getApplicationInfo(target,0)).toString()}.getOrDefault(target.ifBlank{"Tidak diketahui"})
-        val review=CheckBox(this).apply{text="Saya meninjau teks, akun, dan target $targetLabel. Isi kolom fokus saja, tanpa mengirim.";setTextColor(Color.LTGRAY);isEnabled=target in ManualInputPermit.packages && targetField.isNotBlank()}
-        layout.addView(review)
-        button("Isi kolom fokus • $targetLabel") {
-            if(!review.isChecked || target !in ManualInputPermit.packages)Toast.makeText(this,"Pilih kolom teks di aplikasi yang didukung, lalu buka bubble dan review target",Toast.LENGTH_LONG).show()
-            else {
-                val permit=ManualInputPermit(target,input.text.toString(),true,SystemClock.elapsedRealtime(),targetField)
-                closePanel()
-                manualHandler.postDelayed({
-                    serviceScope.launch {
-                        val result=try { SafeAccessibilityService.current?.applyReviewedInput(permit) ?: UiResult.PERMISSION_DENIED }
-                            catch(e:CancellationException){throw e} catch(_:Exception){UiResult.BLOCKED}
-                        Toast.makeText(this@OverlayService,"BYGA input: $result • tidak menekan Kirim",Toast.LENGTH_LONG).show()
-                        BygaDatabase.get(this@OverlayService).records().save(Record("manual_input",java.util.UUID.randomUUID().toString(),"$target • $result"))
-                    }
-                },450)
-            }
-        }
+        button("Isi kolom aplikasi • tinjau target") { prepareManualInput(input.text.toString()) }
         button("Smart Mapping • deteksi tombol") { smartMapping.begin() }
         button("Smart Mapping • tunjuk langsung") { smartMapping.begin(true) }
         button("Library mapping") { closePanel();startActivity(Intent(this,MainActivity::class.java).putExtra("open_mapping",true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) }
@@ -178,25 +155,68 @@ class OverlayService : Service() {
         button("Panel utama") { closePanel(); startActivity(Intent(this,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) }
         button("Tutup panel") { closePanel() }
         button("STOP bubble & agent") { StudioSessions.stopAll(); AgentSessions.stopAll(); stopSelf() }
+        attachPanel(layout)
+    }
+    private fun attachPanel(layout:LinearLayout) {
+        closePanel()
         val width=(300*resources.displayMetrics.density).toInt().coerceAtMost(resources.displayMetrics.widthPixels)
         val scroller=ScrollView(this).apply {isFillViewport=true;addView(layout);background=GradientDrawable().apply{setColor(Color.rgb(8,13,25));cornerRadius=32f;setStroke(2,Color.rgb(53,87,138))};clipToOutline=true}
         val height=minOf((520*resources.displayMetrics.density).toInt(),(resources.displayMetrics.heightPixels*0.5f).toInt())
-        val p=WindowManager.LayoutParams(width,height,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,OverlayAppearance.PANEL_FLAGS,PixelFormat.TRANSLUCENT).apply {
+        val p=WindowManager.LayoutParams(width,height,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,OverlayAppearance.PANEL_FLAGS or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,PixelFormat.TRANSLUCENT).apply {
             gravity=Gravity.TOP or Gravity.CENTER_HORIZONTAL; y=64; softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
-        scroller.setOnTouchListener { _,event -> if(event.actionMasked==MotionEvent.ACTION_OUTSIDE) { closePanel();true } else false }
+        scroller.setOnTouchListener { _,event -> if(event.actionMasked==MotionEvent.ACTION_OUTSIDE) { stopPendingInput();true } else false }
         try { wm.addView(scroller,p); panel=scroller } catch (_: Exception) { panel=null }
     }
+    private fun prepareManualInput(value:String) {
+        if(value.isBlank()){Toast.makeText(this,"Tulis teks dahulu",Toast.LENGTH_SHORT).show();return}
+        manualInputJob?.cancel();closePanel()
+        manualInputJob=serviceScope.launch {
+            try {
+                delay(450)
+                val service=checkNotNull(SafeAccessibilityService.current){"Aktifkan Accessibility dahulu"}
+                val target=service.foregroundPackage()
+                val field=service.focusedFieldFingerprint(target)
+                check(target in ManualInputPermit.packages && field.isNotBlank()){"Pilih kolom teks yang didukung lalu buka bubble kembali"}
+                val label=withContext(Dispatchers.IO){runCatching{packageManager.getApplicationLabel(packageManager.getApplicationInfo(target,0)).toString()}.getOrDefault(target)}
+                ensureActive()
+                val box=LinearLayout(this@OverlayService).apply{orientation=LinearLayout.VERTICAL;setPadding(18,18,18,18);setBackgroundColor(Color.rgb(8,13,25))}
+                box.addView(TextView(this@OverlayService).apply{text="Tinjau isi kolom • $label\n\n${value.take(2000)}\n\nTidak menekan Kirim.";setTextColor(Color.WHITE)})
+                val consent=CheckBox(this@OverlayService).apply{text="Teks, akun, dan target sudah benar";setTextColor(Color.LTGRAY)}
+                box.addView(consent)
+                var chosen=false
+                box.addView(Button(this@OverlayService).apply{text="Isi kolom fokus";setOnClickListener{
+                    if(!consent.isChecked || chosen)return@setOnClickListener
+                    chosen=true
+                    val permit=ManualInputPermit(target,value,true,SystemClock.elapsedRealtime(),field)
+                    closePanel()
+                    manualInputJob=serviceScope.launch {
+                        delay(450)
+                        val result=try{SafeAccessibilityService.current?.applyReviewedInput(permit) ?: UiResult.PERMISSION_DENIED}
+                            catch(e:CancellationException){throw e}catch(_:Exception){UiResult.BLOCKED}
+                        Toast.makeText(this@OverlayService,"BYGA input: $result • tidak menekan Kirim",Toast.LENGTH_LONG).show()
+                        BygaDatabase.get(this@OverlayService).records().save(Record("manual_input",java.util.UUID.randomUUID().toString(),"$target • $result"))
+                    }
+                }})
+                box.addView(Button(this@OverlayService).apply{text="Batal";setOnClickListener{stopPendingInput()}})
+                attachPanel(box)
+            }catch(e:CancellationException){throw e}catch(e:Exception){Toast.makeText(this@OverlayService,e.message ?: "Target belum siap",Toast.LENGTH_LONG).show()}
+        }
+    }
     private fun clamp() {
-        val d=resources.displayMetrics
-        params.x=params.x.coerceIn(0,(d.widthPixels-size).coerceAtLeast(0))
-        params.y=params.y.coerceIn(32,(d.heightPixels-size-100).coerceAtLeast(32))
+        params.x=params.x.coerceIn(0,(screenWidth-size).coerceAtLeast(0))
+        params.y=params.y.coerceIn(32,(screenHeight-size-100).coerceAtLeast(32))
     }
-    private fun update() { bubble?.let { try { wm.updateViewLayout(it,params) } catch (_: Exception) { stopSelf() } } }
+    private fun update() = frameUpdates.request()
+    private fun applyWindowPosition() {
+        val geometry=listOf(params.x,params.y,params.width,params.height)
+        if(geometry==lastGeometry)return
+        bubble?.let { try { wm.updateViewLayout(it,params);lastGeometry=geometry } catch(_:Exception){stopSelf()} }
+    }
     private fun dock() {
-        val target=if(params.x < resources.displayMetrics.widthPixels/2) 0 else resources.displayMetrics.widthPixels-size
-        animator=ValueAnimator.ofInt(params.x,target).apply { duration=if(reducedMotion) 0 else 280; interpolator=OvershootInterpolator(0.6f); addUpdateListener { params.x=it.animatedValue as Int; clamp(); update() }; start() }
+        val target=if(params.x < screenWidth/2) 0 else screenWidth-size
+        animator=ValueAnimator.ofInt(params.x,target).apply { duration=if(reducedMotion) 0 else 180; interpolator=DecelerateInterpolator(); addUpdateListener { params.x=it.animatedValue as Int; clamp(); update() }; start() }
     }
-    override fun onConfigurationChanged(newConfig: Configuration) { super.onConfigurationChanged(newConfig);smartMapping.stop();manualHandler.removeCallbacksAndMessages(null); closePanel(); if(bubble!=null) { clamp(); update() } }
-    override fun onDestroy() { closePanel(); smartMapping.stop();StudioSessions.unregister("manual-input");manualHandler.removeCallbacksAndMessages(null);OverlayRuntime.setRunning(false); serviceScope.cancel(); panel?.let { runCatching { wm.removeView(it) } }; panel=null; animator?.cancel(); bubble?.let { it.animate().cancel(); runCatching { wm.removeView(it) } }; bubble=null; stopForeground(STOP_FOREGROUND_REMOVE); super.onDestroy() }
+    override fun onConfigurationChanged(newConfig: Configuration) { super.onConfigurationChanged(newConfig);smartMapping.stop();stopPendingInput();screenWidth=resources.displayMetrics.widthPixels;screenHeight=resources.displayMetrics.heightPixels;resizeIcon(); if(bubble!=null) { clamp(); update() } }
+    override fun onDestroy() { frameUpdates.cancel();stopPendingInput();closePanel(); smartMapping.stop();StudioSessions.unregister("manual-input");OverlayRuntime.setRunning(false); serviceScope.cancel(); panel?.let { runCatching { wm.removeView(it) } }; panel=null; animator?.cancel(); bubble?.let { it.animate().cancel(); runCatching { wm.removeView(it) } }; bubble=null; stopForeground(STOP_FOREGROUND_REMOVE); super.onDestroy() }
 }

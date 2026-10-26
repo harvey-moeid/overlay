@@ -1,5 +1,6 @@
 package com.byga.smartoverlay.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,7 +18,7 @@ import org.json.JSONObject
 
 @Composable fun DataControls(){
     val context=LocalContext.current;val scope=rememberCoroutineScope();val db=remember{BygaDatabase.get(context)}
-    val rows by remember{db.records().exportable()}.collectAsState(initial=emptyList())
+    val rows by remember{db.records().exportable()}.collectAsStateWithLifecycle(initialValue=emptyList())
     var raw by remember{mutableStateOf("")};var preview by remember{mutableStateOf<List<Record>?>(null)};var note by remember{mutableStateOf("")};var exportDialog by remember{mutableStateOf(false)}
     SectionTitle("Data milik Anda", "Backup konfigurasi secara sadar, tanpa API key atau scope aktif.")
     PremiumCard{

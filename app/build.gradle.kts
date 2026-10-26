@@ -7,8 +7,20 @@ plugins {
 android {
     namespace = "com.byga.smartoverlay"
     compileSdk = 36
-    defaultConfig { applicationId = "com.byga.smartoverlay"; minSdk = 28; targetSdk = 36; versionCode = 7; versionName = "0.6.1-responsive"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
-    buildFeatures { compose = true }
+    defaultConfig { applicationId = "com.byga.smartoverlay"; minSdk = 28; targetSdk = 36; versionCode = 8; versionName = "0.6.2-smooth"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+    buildFeatures { compose = true; buildConfig = true }
+    testBuildType = providers.gradleProperty("qaBuildType").orElse("debug").get()
+    buildTypes {
+        create("optimized") {
+            initWith(getByName("release"))
+            isDebuggable=false
+            isMinifyEnabled=true
+            isShrinkResources=true
+            signingConfig=signingConfigs.getByName("debug")
+            matchingFallbacks += "release"
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"),"proguard-rules.pro")
+        }
+    }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     testOptions { unitTests.isReturnDefaultValues = true; unitTests.isIncludeAndroidResources = true }
@@ -30,6 +42,7 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:core:1.6.1")
     androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.room:room-testing:2.7.1")

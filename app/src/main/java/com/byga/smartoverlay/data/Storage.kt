@@ -24,6 +24,7 @@ data class Record(val kind: String, val id: String, val body: String, val update
 @Dao interface Records {
     @Query("SELECT * FROM records WHERE kind IN ('workflow','prompt','account','app') ORDER BY updatedAt DESC") fun exportable(): Flow<List<Record>>
     @Query("SELECT * FROM records WHERE kind = :kind ORDER BY updatedAt DESC") fun observe(kind: String): Flow<List<Record>>
+    @Query("SELECT c.kind,c.id,COALESCE(t.body,'Percakapan tersimpan') AS body,c.updatedAt FROM records c LEFT JOIN records t ON t.kind='chat_title' AND t.id=c.id WHERE c.kind='chat' ORDER BY c.updatedAt DESC LIMIT :limit OFFSET :offset") fun chatHeaders(limit:Int,offset:Int): Flow<List<Record>>
     @Query("SELECT COUNT(*) FROM records WHERE kind = :kind") fun count(kind: String): Flow<Int>
     @Query("SELECT * FROM records WHERE kind = :kind ORDER BY updatedAt DESC LIMIT :limit") fun recent(kind: String, limit: Int): Flow<List<Record>>
     @Query("SELECT * FROM records WHERE kind = :kind AND id = :id") suspend fun get(kind: String, id: String): Record?

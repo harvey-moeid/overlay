@@ -1,5 +1,6 @@
 package com.byga.smartoverlay.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,7 +13,7 @@ import org.json.JSONObject
 import java.util.UUID
 
 @Composable fun PromptLibrary(onChat:(String)->Unit,onDraft:(String)->Unit){
-    val context=LocalContext.current;val scope=rememberCoroutineScope();val dao=remember{BygaDatabase.get(context).records()};val rows by remember{dao.observe("prompt")}.collectAsState(initial=emptyList())
+    val context=LocalContext.current;val scope=rememberCoroutineScope();val dao=remember{BygaDatabase.get(context).records()};val rows by remember{dao.observe("prompt")}.collectAsStateWithLifecycle(initialValue=emptyList())
     var title by remember{mutableStateOf("")};var text by remember{mutableStateOf("")};var tags by remember{mutableStateOf("")};var query by remember{mutableStateOf("")};var edit by remember{mutableStateOf<String?>(null)}
     PremiumCard{Eyebrow("Keep your best ideas");Text("Prompt yang bagus,\nsiap dipakai lagi.",style=MaterialTheme.typography.headlineSmall);Text("Template lokal, pencarian dan favorit. Tidak dikirim ke AI sampai Anda memilihnya lalu menekan Kirim di AI Chat.",color=Muted)}
     OutlinedTextField(title,{title=it},label={Text("Judul template")},modifier=Modifier.fillMaxWidth())

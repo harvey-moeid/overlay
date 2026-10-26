@@ -1,5 +1,6 @@
 package com.byga.smartoverlay.workflow
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.app.Application
 import android.app.KeyguardManager
 import android.content.Intent
@@ -105,10 +106,10 @@ class WorkflowViewModel(app: Application): AndroidViewModel(app) {
     val vm: WorkflowViewModel=viewModel()
     val lifecycle=LocalLifecycleOwner.current.lifecycle
     vm.foreground={lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)}
-    val status by vm.runner.snapshot.collectAsState()
-    val mappingRows by remember { dao.observe("button_mapping") }.collectAsState(initial=emptyList())
-    val rows by remember { dao.observe("workflow") }.collectAsState(initial=emptyList())
-    val providers by remember { dao.observe("provider") }.collectAsState(initial=emptyList())
+    val status by vm.runner.snapshot.collectAsStateWithLifecycle()
+    val mappingRows by remember { dao.observe("button_mapping") }.collectAsStateWithLifecycle(initialValue=emptyList())
+    val rows by remember { dao.observe("workflow") }.collectAsStateWithLifecycle(initialValue=emptyList())
+    val providers by remember { dao.observe("provider") }.collectAsStateWithLifecycle(initialValue=emptyList())
     var id by vm.editorId; var title by vm.editorTitle
     var steps by vm.editorSteps
     var approval by remember { mutableStateOf<String?>(null) }; var note by remember { mutableStateOf("") }

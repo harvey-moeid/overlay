@@ -7,6 +7,7 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
 
 /** Serialize remote accessibility calls off the UI thread. Never queue concurrent scans. */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 object AccessibilityWork {
     private val dispatcher = Dispatchers.IO.limitedParallelism(1)
     suspend fun <T> run(block: suspend () -> T): T = withContext(dispatcher) { block() }

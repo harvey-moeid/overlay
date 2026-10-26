@@ -1,4 +1,4 @@
-# Responsiveness fixes — 0.6.1
+# Responsiveness fixes — 0.6.2
 
 The quick panel and mapping reviews now use non-modal touch windows, so touches outside a panel are no longer swallowed. An outside tap closes the panel; dismissing a workflow click confirmation cancels its pending permit. Point-teaching mode still intentionally captures one selected touch and expires after 30 seconds.
 
@@ -24,3 +24,14 @@ Regression coverage includes outside-touch flags with keyboard focus preserved, 
 4. Test a failed browser page and unfinished login. Confirm actionable status in Monitor and a bounded wait. Stop during a wait. Do not retry a paid generation without inspecting the result.
 5. Open a library with more than eight entries; navigate both ways and delete the last item on a page. Confirm no missing saved entries or empty inaccessible page.
 6. Save/test/delete a provider on a QA device and verify chat/capture/workflow behavior with a test account.
+
+## Follow-up after device stutter report
+
+- The installable artifact is now the non-debuggable optimized variant with R8/resource shrinking, rather than a development APK. It uses test/debug signing for private installation; official distribution needs an owner-managed signing key.
+- Bubble motion is coalesced with `postOnAnimation`: even 500 input updates before a frame produce one window update using the latest position. No idle frame loop runs. Drag uses Android touch slop, avoids repeated display-metric queries, and docks without overshoot.
+- Opening the quick panel performs no Accessibility or package-manager lookup. The reviewed-input action resolves its target only after the user explicitly chooses it. Its entire job, including the delayed action, is cancelled by global Stop.
+- Robot images in the app and overlay share a bounded 2MB cache and are sampled/decoded off Main. Settings changes unrelated to size do not reload the icon.
+- Chat uses a bounded LazyColumn; typing invalidates the composer rather than measuring all replies. JSON serialization/deserialization runs on Default. History SQL joins only short titles and loads eight rows per page; selecting a thread fetches its complete body. Old threads without titles remain accessible.
+- UI database subscriptions are lifecycle-aware. Explicit browser Pause does not consume the 60-second readiness budget.
+- Settings includes version/build identity and optional copyable local frame metrics. Metrics contain device/build information and aggregate timings, never screen text, credentials or message contents. The frame callback only updates an in-memory histogram on a background handler.
+- Emulator instrumentation measures warmed scrolling, checks for frozen frames, exercises repeated bubble drags, opens its panel without Accessibility enabled, and verifies that outside touches reach Chat. API35 and API36 runs, screenshots and measurements are retained as Actions artifacts. Emulator frame timings are not measurements of the user's Samsung hardware.

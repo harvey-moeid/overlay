@@ -6,7 +6,7 @@ Asisten produktivitas Android berbahasa Indonesia: dashboard navy/cyan, robot bu
 
 ## Memperoleh APK
 
-Buka **GitHub → Actions → Android Debug APK → run sukses → Artifacts → BYGA-Smart-Overlay-debug**. Ekstrak ZIP, transfer `app-debug.apk` ke HP dan instal melalui installer Android. Debug signing key pada runner berbeda dapat berbeda; update yang ditolak installer mungkin memerlukan uninstall (menghapus data lokal). Tidak ada release-signing key atau API key dalam CI.
+Buka **GitHub → Actions → Android Optimized APK and Runtime QA → run sukses → Artifacts → BYGA-Smart-Overlay-optimized**. Ekstrak ZIP, transfer `app-optimized.apk` ke HP dan instal melalui installer Android. Debug signing key pada runner berbeda dapat berbeda; update yang ditolak installer mungkin memerlukan uninstall (menghapus data lokal). Tidak ada release-signing key atau API key dalam CI.
 
 ## Yang dapat digunakan
 
@@ -36,7 +36,9 @@ Buka **GitHub → Actions → Android Debug APK → run sukses → Artifacts →
 7. Input manual target: fokuskan kolom draft pada aplikasi yang diizinkan, ketuk bubble, masukkan teks, review target/akun, centang consent lalu **Isi kolom fokus**. SUCCESS hanya setelah nilai field terverifikasi; NOT_FOUND/BLOCKED/UNKNOWN bukan sukses. Jika tidak kompatibel, gunakan Salin/Share manual.
 8. Capture: pilih target yang diizinkan, beri consent aplikasi dan sistem per sesi. Kembali ke Screen Capture/notification untuk preview; jangan berbagi data login/OTP/keuangan. Hapus gambar jika tidak diperlukan. Untuk analisis provider, aktifkan kemampuan Vision pada model yang mendukung gambar, tinjau preview dan consent kedua; request gambar dikirim hanya setelah konfirmasi Anda.
 
-Perbaikan responsivitas 0.6.1 dan langkah uji HP: [RESPONSIVENESS.md](docs/RESPONSIVENESS.md).
+Rilis 0.6.2 memakai APK optimized (R8, resource shrinking, non-debuggable), pembaruan bubble satu kali per frame, gambar robot tersampel/cache, chat lazy dan riwayat berpaginasi dari SQL. Diagnostik frame lokal ada di **Lainnya → Settings → Performa & versi**. Build optimized pribadi memakai debug signing; untuk distribusi resmi, pasang signing key milik Anda. Tes emulator Android 15/16 dan metrik frame diunggah pada Actions.
+
+Perbaikan responsivitas dan langkah uji HP: [RESPONSIVENESS.md](docs/RESPONSIVENESS.md).
 
 ## Build & QA
 
