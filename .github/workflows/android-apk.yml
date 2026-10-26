@@ -126,7 +126,7 @@ jobs:
           ram-size: 3072M
           heap-size: 256M
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          emulator-options: -no-window -gpu software -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
           script: bash scripts/run-android-runtime.sh
       - name: Runtime test reports
         if: always()
