@@ -17,16 +17,28 @@ import androidx.compose.ui.unit.Dp
 import com.byga.smartoverlay.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
-/** Never decode the 1254px source on Main for a 28/48/124dp icon. Cache sampled bitmaps. */
+/** Never decode the 1254px source on Main for a 28/48/124dp icon. Cache bitmaps fitted to their requested pixel size. */
 object RobotBitmaps {
     private val cache = object : LruCache<Int, Bitmap>(2 * 1024 * 1024) {
         override fun sizeOf(key:Int,value:Bitmap)=value.allocationByteCount
     }
     suspend fun load(context:Context,pixels:Int):Bitmap = withContext(Dispatchers.IO) {
-        val sample = sampleFor(pixels)
-        cache.get(sample) ?: BitmapFactory.decodeResource(context.resources,R.drawable.byga_robot,
-            BitmapFactory.Options().apply { inSampleSize=sample;inScaled=false }).also { cache.put(sample,it) }
+        val target=pixels.coerceAtLeast(1)
+        cache.get(target) ?: run {
+            val decoded=checkNotNull(BitmapFactory.decodeResource(context.resources,R.drawable.byga_robot,
+                BitmapFactory.Options().apply { inSampleSize=sampleFor(target);inScaled=false }))
+            // Sampling alone can leave a 627px texture for a 326px view. Fit once on IO.
+            val scale=minOf(1f,target.toFloat()/maxOf(decoded.width,decoded.height))
+            val width=(decoded.width*scale).roundToInt().coerceAtLeast(1)
+            val height=(decoded.height*scale).roundToInt().coerceAtLeast(1)
+            val fitted=if(width==decoded.width && height==decoded.height)decoded
+                else Bitmap.createScaledBitmap(decoded,width,height,true)
+            if(fitted!==decoded)decoded.recycle()
+            cache.put(target,fitted)
+            fitted
+        }
     }
     internal fun sampleFor(pixels:Int):Int {
         var sample=1

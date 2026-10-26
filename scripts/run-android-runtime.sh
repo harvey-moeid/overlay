@@ -14,11 +14,37 @@ collect_diagnostics() {
   if adb shell test -d /sdcard/Android/data/com.byga.smartoverlay/files; then
     adb pull /sdcard/Android/data/com.byga.smartoverlay/files/ runtime-device-results/device-files || true
   fi
+  python3 - <<'PY'
+from pathlib import Path
+import json, re
+root=Path("runtime-device-results")
+for p in root.rglob("performance-smoke.json"):
+    print("PERFORMANCE_REPORT", p.read_text())
+for p in [root/"os-ready.xml",root/"window.xml"]:
+    if p.exists():
+        texts=re.findall(r'text="([^"]*)"',p.read_text(errors="replace"))
+        print("UI_HEALTH",p.name,[s for s in texts if "responding" in s.lower()])
+log=root/"device-logcat.txt"
+if log.exists():
+    lines=log.read_text(errors="replace").splitlines()
+    selected=[s for s in lines if ("ANR in" in s or "FATAL EXCEPTION" in s or "Untrusted touch" in s or
+        ("ActivityTaskManager" in s and "com.byga.smartoverlay" in s) or
+        ("Killing" in s and ("com.byga.smartoverlay" in s or "com.android.systemui" in s)))]
+    print("DEVICE_DIAGNOSTICS\n"+"\n".join(selected[-50:]))
+for p in root.rglob("bubble-window-state.txt"):
+    lines=p.read_text(errors="replace").splitlines()
+    print("BUBBLE_WINDOW", "\n".join(s for s in lines if "com.byga" in s or "Exclusion" in s or "mCurrentFocus" in s))
+PY
 }
 trap collect_diagnostics EXIT
 adb shell wm dismiss-keyguard
 adb shell input keyevent KEYCODE_HOME
-adb shell uiautomator dump /sdcard/byga-os-ready.xml
+for attempt in 1 2 3 4 5 6; do
+  timeout 8s adb shell uiautomator dump /sdcard/byga-os-ready.xml || true
+  if adb shell test -s /sdcard/byga-os-ready.xml; then break; fi
+  echo "Waiting for emulator UI root ($attempt/6)"
+  sleep 2
+done
 adb pull /sdcard/byga-os-ready.xml runtime-device-results/os-ready.xml
 python3 - <<'PY'
 import xml.etree.ElementTree as ET
@@ -27,6 +53,7 @@ text=" ".join(node.get("text","") for node in root.iter()).casefold()
 if "isn't responding" in text or "not responding" in text:
     raise SystemExit("Emulator OS is unresponsive before APK installation; runtime tests have not started")
 PY
+sha256sum runtime-apks/optimized/app-optimized.apk
 adb install -r runtime-apks/optimized/app-optimized.apk
 adb install -r runtime-apks/androidTest/optimized/app-optimized-androidTest.apk
 adb logcat -c
