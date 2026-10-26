@@ -61,7 +61,7 @@ import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
     private var requestedDestination by mutableStateOf<String?>(null)
-    private fun destination(intent:Intent?)=when { intent?.getBooleanExtra("open_capture",false)==true -> "Capture";intent?.getBooleanExtra("open_schedule",false)==true -> "Scheduler";else -> null }
+    private fun destination(intent:Intent?)=when { intent?.getBooleanExtra("open_mapping",false)==true -> "Smart Mapping";intent?.getBooleanExtra("open_workflow",false)==true -> "Workflows";intent?.getBooleanExtra("open_capture",false)==true -> "Capture";intent?.getBooleanExtra("open_schedule",false)==true -> "Scheduler";else -> null }
     override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); requestedDestination=destination(intent);setContent { BygaApp() } }
     override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);requestedDestination=destination(intent)}
 
@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
             Scaffold(containerColor=Ink, modifier=Modifier.imePadding(), contentWindowInsets=WindowInsets(0,0,0,0),
                 topBar={ Row(Modifier.fillMaxWidth().background(Ink).statusBarsPadding().padding(horizontal=20.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
                     Row(Modifier.weight(1f),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-                        Surface(shape=RoundedCornerShape(14.dp),color=Blue.copy(alpha=0.15f)) { Text("B",Modifier.padding(horizontal=14.dp,vertical=8.dp),style=MaterialTheme.typography.titleLarge,color=Cyan) }
+                        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(com.byga.smartoverlay.R.drawable.byga_robot),"Logo robot BYGA BG",Modifier.size(48.dp))
                         Column(Modifier.weight(1f)) { Text("BYGA",style=MaterialTheme.typography.titleLarge,maxLines=1); Text("SMART OVERLAY STUDIO",style=MaterialTheme.typography.labelSmall,color=Muted,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
                     }
                     Row { IconButton(onClick={showMessage=true}){Icon(Icons.Default.Info,"Lihat status",tint=Muted)}; TextButton(onClick={stop();message="Semua request/workflow dihentikan dan bubble ditutup"}) { Icon(Icons.Default.Close,"Stop darurat semua sesi",tint=Color(0xFFFF849A),modifier=Modifier.size(16.dp));Text("STOP",color=Color(0xFFFF849A),style=MaterialTheme.typography.labelSmall) } }
@@ -119,12 +119,13 @@ class MainActivity : ComponentActivity() {
                     NavigationBarItem(selected=tab !in listOf("Home","Chat","Workflows","Media & Social"),onClick={modules=true},icon={Icon(Icons.Default.Menu,"Semua modul")},label={Text("Lainnya")})
                 } },snackbarHost={SnackbarHost(snack)}
             ) { insets ->
+                screenState.SaveableStateProvider(tab) {
                 Column(Modifier.fillMaxSize().padding(insets).background(Brush.verticalGradient(listOf(Ink,Color(0xFF0B1424)))).padding(horizontal=18.dp).verticalScroll(rememberScrollState()).padding(bottom=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                     if(tab!="Home") { val d=destinations.firstOrNull{it.id==tab}; Column(Modifier.padding(top=12.dp,bottom=4.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){Eyebrow("BYGA / ${d?.title ?: tab}"); Text(d?.title ?: tab,style=MaterialTheme.typography.headlineLarge); Text(d?.caption ?: "",color=Muted)} } else Spacer(Modifier.height(4.dp))
-                        screenState.SaveableStateProvider(tab) { when(tab) {
+                        when(tab) {
                             "Mulai" -> {
                                 Text("Kendali selalu di tangan Anda",style=MaterialTheme.typography.headlineSmall)
-                                Text("Bubble menggunakan izin tampil di atas aplikasi. Accessibility opsional membaca metadata/field terpilih dan mengisi teks setelah persetujuan manual per aksi. Capture memiliki consent sistem terpisah. Capture satu frame hanya setelah consent sistem terpisah; tidak ada login atau posting otomatis.")
+                                Text("Bubble menggunakan izin tampil di atas aplikasi. Accessibility opsional membaca metadata tombol saat Smart Mapping atau workflow yang Anda review. Dapat mengklik tombol yang dipetakan dan mengisi kolom fokus sesuai review; posisi manual selalu meminta konfirmasi. Capture memiliki consent sistem terpisah. Capture satu frame hanya setelah consent sistem terpisah; tidak ada login atau posting otomatis.")
                                 Text("Overlay: ${if(overlay) "DIIZINKAN" else "BELUM DIIZINKAN"} • Accessibility: ${if(accessibility) "AKTIF" else "NONAKTIF"}")
                                 Button(onClick={ startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:$packageName"))) }) { Text("Atur izin bubble") }
                                 var disclosure by remember { mutableStateOf(false) }
@@ -141,6 +142,13 @@ class MainActivity : ComponentActivity() {
                             "Monitor" -> { RuntimeMonitor() }
                             "Apps" -> {
                                 Text("Aplikasi tujuan",style=MaterialTheme.typography.headlineSmall)
+                                var chooseInstalled by remember { mutableStateOf(false) }
+                                Button(onClick={chooseInstalled=true}) { Text("Pilih & buka aplikasi terinstal") }
+                                if(chooseInstalled)InstalledAppPicker("",{pkg->
+                                    chooseInstalled=false
+                                    scope.launch{dao.save(Record("app",pkg,pkg))}
+                                    message=if(Handoffs.launch(this@MainActivity,pkg))"Aplikasi dibuka" else "Aplikasi tidak dapat dibuka pada profil ini"
+                                },{chooseInstalled=false})
                                 Text("Input manual eksperimental: fokuskan kolom di app ini, buka panel bubble, review teks/target/akun lalu pilih Isi kolom fokus. Tidak menekan Kirim. Aksi otomatis agent lintas aplikasi tetap BLOCKED sampai diuji.")
                                 listOf("ChatGPT" to "com.openai.chatgpt","Claude" to "com.anthropic.claude","TikTok" to "com.zhiliaoapp.musically","Instagram" to "com.instagram.android").forEach { (label,pkg) ->
                                     OutlinedButton(onClick={ message=if(Handoffs.launch(this@MainActivity,pkg)) "$label dibuka; kompatibilitas belum diuji" else "$label tidak tersedia. Gunakan browser / sharesheet." }) { Text("Buka $label") }
@@ -170,6 +178,7 @@ class MainActivity : ComponentActivity() {
                                 Button(onClick={scope.launch { val r=FakeProvider().text(prompt); prompt=r.value; message="Konsep fake lokal disalin ke panel Home; bukan hasil API" }}) { Text("Coba fake provider tanpa biaya") }
                             }
                             "Workflows" -> { WorkflowStudio() }
+                            "Smart Mapping" -> { com.byga.smartoverlay.mapping.MappingStudio() }
                             "Scheduler" -> { ScheduleStudio { tab="Workflows" } }
                             "Media & Social" -> { PublishingStudio(prompt,{prompt=it},{tab="Accounts"}) }
                             "Diagnostik" -> {

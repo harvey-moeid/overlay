@@ -51,3 +51,24 @@ ChatGPT, Claude, Google Flow, TikTok, Instagram: **NOT_TESTED** pada versi HP pe
 - Hasil GitHub Actions tersedia pada run SHA pengiriman. Repo tidak memuat API key atau release signing secret; debug APK signature diverifikasi lokal.
 
 Gerbang akhir Studio 0.4.0: `testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug` selesai exit 0 (BUILD SUCCESSFUL). JUnit: 138/138, 0 failure/error/skipped. Lint: 0 error/fatal, 37 warning nonblocking (termasuk dependency updates, KTX/i18n dan accessibility lint); warning tidak diklaim telah seluruhnya dibersihkan. Signature debug APK diverifikasi terpisah.
+
+
+## Validasi 0.5.0-workflow — 26 Oktober 2026
+
+- Gerbang penuh testDebugUnitTest / assembleDebug / assembleDebugAndroidTest / lintDebug: BUILD SUCCESSFUL.
+- **154/154 tes JVM lulus**, 0 failure/error/skipped. Native UI JVM mencakup template dan editor langkah aplikasi; dialog pemilih launcher berada pada instrumentation yang belum dieksekusi.
+- Android Lint: 0 error/fatal, 69 warning nonblocking. APK versi 0.5.0-workflow/code 5, signature debug v2 terverifikasi dengan apksigner.
+- Fixture Chromium offline untuk adapter ChatGPT/Flow: PASS. Prompt multiline/literal, hasil lama, upload readiness, satu kali dispatch dan video baru diperiksa. Tidak menghubungi akun situs asli.
+- Instrumentation APK dikompilasi; uji perangkat, login WebView, native file chooser, generasi akun nyata dan unduhan sesi/blob ke galeri tetap NEEDS_REAL_DEVICE. Sesi Google dapat menolak login browser tertanam.
+- [Panduan workflow web](WORKFLOW_WEB.md), [preview Compose JVM](screenshots/workflow-studio.png).
+
+
+## Validasi 0.6.0-smart-mapping — 26 Oktober 2026
+
+- Gerbang penuh `testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug`: **BUILD SUCCESSFUL**.
+- **191/191 tes JVM**, 0 failure/error/skipped. Tambahan 26 policy/runner mapping, 10 adapter Accessibility Robolectric, 1 route/latihan Compose.
+- Tes mencakup tombol berpindah, label/parent/role berubah, duplikasi, scope situs/aplikasi salah, lock/password, permit expired/single-use, serta checkpoint tanpa retry. Fake node/service bukan aplikasi ChatGPT/Chrome asli.
+- UI JVM memeriksa logo BG, route Smart Mapping, counter latihan dan scroll per halaman; [preview dari Compose](screenshots/smart-mapping-studio.png).
+- Fixture DOM Chromium offline ChatGPT/Flow: PASS. Lint: 0 error/fatal, 79 warning nonblocking. Signature APK debug v2 terverifikasi; versionCode 6.
+- `adb devices -l`: tidak ada emulator/HP tersambung. APK instrumentation dikompilasi; device tests **belum dijalankan**. Interaksi overlay/point/gesture, OEM, URL Chrome dan akun ChatGPT/Flow tetap NEEDS_REAL_DEVICE.
+- [Penggunaan dan batas Smart Mapping](SMART_MAPPING.md). Tidak ada klaim kompatibilitas 99,9% dari hasil build/fixture ini.

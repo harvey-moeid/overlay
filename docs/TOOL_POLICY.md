@@ -7,3 +7,6 @@ Registry mengenali tool ID PRD untuk menampilkan kontrak. Hanya `set_text` dan `
 Keputusan: ALLOW hanya bila flag aktif, grant sesi benar dan belum expired, langkah di bawah cap, schema/selector valid, package+tool di scope, window tidak sensitif, perangkat unlocked, service/overlay sehat dan observation berumur <=5 detik. Paket berubah/observation stale memberi NEED_REOBSERVE satu kali; masalah izin/grant memberi NEED_APPROVAL/WAITING_FOR_USER; lainnya DENY/BLOCKED. Hanya ALLOW mencapai adapter. Adapter menerapkan ulang allowlist package/selector.
 
 Verifier membaca nilai field sebenarnya: execute()==true tidak cukup. Kegagalan aksi tidak diulang. Ketidakcocokan hasil hanya reobserve sesuai batas 0–3 tanpa action replay. Tidak ada tap tebakan atau blind retry side effects. Audit hanya tool/state/alasan, tanpa nilai field.
+
+
+Smart Mapping 0.6.0 merupakan fitur deterministik yang dimulai/direview pengguna, terpisah dari tool registry Agent Lab ini. Mapping bukan tool raw yang bisa dipanggil AI. Lihat [SMART_MAPPING.md](SMART_MAPPING.md) untuk scope, binding, permit dan keterbatasan verifikasi.

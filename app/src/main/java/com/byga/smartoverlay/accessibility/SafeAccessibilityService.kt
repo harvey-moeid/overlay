@@ -14,9 +14,10 @@ enum class UiResult { SUCCESS, NOT_FOUND, PERMISSION_DENIED, BLOCKED, UNKNOWN }
 data class NodeSummary(val id: String?, val editable: Boolean, val clickable: Boolean)
 class SafeAccessibilityService : AccessibilityService() {
     companion object { @Volatile var current: SafeAccessibilityService? = null; private set }
+    val mapping by lazy { com.byga.smartoverlay.mapping.MappingAccessibility(this) }
     private var lastAction = 0L
     override fun onServiceConnected() { current = this }
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) { if(event?.eventType==AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)mapping.screenChanged(event.packageName?.toString().orEmpty(),event.className?.toString().orEmpty()) }
     override fun onInterrupt() { current = null }
     override fun onDestroy() { current = null; super.onDestroy() }
     private fun safeRoot(pkg: String): AccessibilityNodeInfo? {

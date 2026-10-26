@@ -42,13 +42,14 @@ import com.byga.smartoverlay.MainActivity
 class OverlayService : Service() {
     private val serviceScope=CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
     private var reducedMotion=false
+    private val smartMapping by lazy { com.byga.smartoverlay.mapping.MappingOverlay(this,serviceScope,{panel?.let{runCatching{wm.removeView(it)}};panel=null},{visible->bubble?.visibility=if(visible)View.VISIBLE else View.INVISIBLE}) }
     private val manualHandler=Handler(Looper.getMainLooper())
     override fun onCreate() {
         super.onCreate()
-        StudioSessions.register("manual-input"){manualHandler.removeCallbacksAndMessages(null)}
+        StudioSessions.register("manual-input"){manualHandler.removeCallbacksAndMessages(null);smartMapping.stop()}
         serviceScope.launch { settings.data.collect {
             reducedMotion=it[booleanPreferencesKey("reduced_motion")] ?: false
-            bubbleSizeDp=(it[intPreferencesKey("bubble_size_dp")] ?: 72).coerceIn(56,96)
+            bubbleSizeDp=(it[intPreferencesKey("bubble_size_dp")] ?: 80).coerceIn(56,128)
             if(bubble!=null) { params.width=size; params.height=size; clamp(); update() }
         } }
     }
@@ -57,7 +58,7 @@ class OverlayService : Service() {
     private var panel: View? = null
     private var animator: ValueAnimator? = null
     private lateinit var params: WindowManager.LayoutParams
-    private var bubbleSizeDp=72
+    private var bubbleSizeDp=80
     private val size get() = (bubbleSizeDp * resources.displayMetrics.density).toInt()
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -69,6 +70,8 @@ class OverlayService : Service() {
         val notification=Notification.Builder(this,"bubble").setContentTitle("BYGA • Bubble aktif").setContentText("Ketuk untuk panel • Stop untuk menutup").setSmallIcon(android.R.drawable.ic_dialog_info).setContentIntent(open).addAction(Notification.Action.Builder(null,"Stop",stop).build()).setOngoing(true).build()
         startForeground(10,notification)
         if (bubble == null) show()
+        smartMapping // Connect pending workflow confirmations while the bubble is active.
+        if(intent?.action=="MAP_BUTTONS")smartMapping.begin(intent.getBooleanExtra("point",false))
         return START_NOT_STICKY
     }
     private fun show() {
@@ -133,9 +136,12 @@ class OverlayService : Service() {
                 },450)
             }
         }
+        button("Smart Mapping • deteksi tombol") { smartMapping.begin() }
+        button("Smart Mapping • tunjuk langsung") { smartMapping.begin(true) }
+        button("Library mapping") { togglePanel();startActivity(Intent(this,MainActivity::class.java).putExtra("open_mapping",true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) }
         button("Salin") { Handoffs.copy(this,input.text.toString()) }
         button("Bagikan teks") { runCatching { Handoffs.share(this,input.text.toString()) } }
-        button("Panel utama") { togglePanel(); startActivity(Intent(this,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)) }
+        button("Panel utama") { togglePanel(); startActivity(Intent(this,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) }
         button("Tutup panel") { togglePanel() }
         button("STOP bubble & agent") { StudioSessions.stopAll(); AgentSessions.stopAll(); stopSelf() }
         val width=(300*resources.displayMetrics.density).toInt().coerceAtMost(resources.displayMetrics.widthPixels)
@@ -156,6 +162,6 @@ class OverlayService : Service() {
         val target=if(params.x < resources.displayMetrics.widthPixels/2) 0 else resources.displayMetrics.widthPixels-size
         animator=ValueAnimator.ofInt(params.x,target).apply { duration=if(reducedMotion) 0 else 280; interpolator=OvershootInterpolator(0.6f); addUpdateListener { params.x=it.animatedValue as Int; clamp(); update() }; start() }
     }
-    override fun onConfigurationChanged(newConfig: Configuration) { super.onConfigurationChanged(newConfig);manualHandler.removeCallbacksAndMessages(null); panel?.let { togglePanel() }; if(bubble!=null) { clamp(); update() } }
-    override fun onDestroy() { StudioSessions.unregister("manual-input");manualHandler.removeCallbacksAndMessages(null);OverlayRuntime.setRunning(false); serviceScope.cancel(); panel?.let { runCatching { wm.removeView(it) } }; panel=null; animator?.cancel(); bubble?.let { it.animate().cancel(); runCatching { wm.removeView(it) } }; bubble=null; stopForeground(STOP_FOREGROUND_REMOVE); super.onDestroy() }
+    override fun onConfigurationChanged(newConfig: Configuration) { super.onConfigurationChanged(newConfig);smartMapping.stop();manualHandler.removeCallbacksAndMessages(null); panel?.let { togglePanel() }; if(bubble!=null) { clamp(); update() } }
+    override fun onDestroy() { smartMapping.stop();StudioSessions.unregister("manual-input");manualHandler.removeCallbacksAndMessages(null);OverlayRuntime.setRunning(false); serviceScope.cancel(); panel?.let { runCatching { wm.removeView(it) } }; panel=null; animator?.cancel(); bubble?.let { it.animate().cancel(); runCatching { wm.removeView(it) } }; bubble=null; stopForeground(STOP_FOREGROUND_REMOVE); super.onDestroy() }
 }

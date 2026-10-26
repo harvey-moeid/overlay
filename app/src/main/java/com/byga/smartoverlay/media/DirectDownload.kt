@@ -16,6 +16,37 @@ sealed class DownloadResult {
     data class Blocked(val code: String): DownloadResult()
 }
 object DirectDownload {
+    /** Copies a browser-session download after the same size/signature/file checks as URL media. */
+    suspend fun saveLocal(context:Context,file:java.io.File,mime:String):DownloadResult=withContext(Dispatchers.IO) {
+        if(Build.VERSION.SDK_INT<29)return@withContext DownloadResult.Blocked("NEEDS_ANDROID_10")
+        var target:Uri?=null
+        try {
+            val extension=MediaPolicy.extensions[mime] ?: error("MIME_UNSUPPORTED")
+            val size=file.length()
+            check(MediaPolicy.acceptsSize(size)){"SIZE_LIMIT"}
+            val header=file.inputStream().use{input->val bytes=ByteArray(32);bytes.copyOf(maxOf(0,input.read(bytes)))}
+            check(MediaPolicy.matches(mime,header)){"SIGNATURE_MISMATCH"}
+            val images=mime.startsWith("image/")
+            target=checkNotNull(context.contentResolver.insert(if(images)MediaStore.Images.Media.EXTERNAL_CONTENT_URI else MediaStore.Video.Media.EXTERNAL_CONTENT_URI,ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME,"BYGA-${System.currentTimeMillis()}.$extension")
+                put(MediaStore.MediaColumns.MIME_TYPE,mime)
+                put(MediaStore.MediaColumns.RELATIVE_PATH,if(images)"Pictures/BYGA" else "Movies/BYGA")
+                put(MediaStore.MediaColumns.IS_PENDING,1)
+            }))
+            context.contentResolver.openOutputStream(target,"w").use { output ->
+                checkNotNull(output)
+                file.inputStream().use { input ->
+                    val bytes=ByteArray(8192)
+                    while(true) { currentCoroutineContext().ensureActive();val count=input.read(bytes);if(count<0)break;output.write(bytes,0,count) }
+                }
+            }
+            context.contentResolver.openAssetFileDescriptor(target,"r")?.use{check(it.length==size){"INCOMPLETE_FILE"}} ?: error("FILE_MISSING")
+            currentCoroutineContext().ensureActive()
+            check(context.contentResolver.update(target,ContentValues().apply{put(MediaStore.MediaColumns.IS_PENDING,0)},null,null)==1)
+            DownloadResult.Saved(target)
+        } catch(e:CancellationException) { target?.let{context.contentResolver.delete(it,null,null)};throw e }
+        catch(_:Exception) { target?.let{runCatching{context.contentResolver.delete(it,null,null)}};DownloadResult.Blocked("Media gagal diverifikasi. JPEG/PNG/WebP/MP4/WebM, maksimum 50MB, Android 10+.") }
+    }
     private val client=OkHttpClient.Builder().callTimeout(90,TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build()
     suspend fun save(context: Context, url: String): DownloadResult = withContext(Dispatchers.IO) {
         if(Build.VERSION.SDK_INT<29) return@withContext DownloadResult.Blocked("NEEDS_ANDROID_10")
