@@ -20,15 +20,8 @@
 -keep class com.byga.smartoverlay.agent.PlanCodec { *; }
 -keep class com.byga.smartoverlay.ai.BudgetLedger { *; }
 
-# Kotlin facade entry points used directly by the on-device coroutine tests.
--keep class kotlin.ResultKt { *; }
--keep class kotlin.coroutines.intrinsics.IntrinsicsKt { *; }
--keep class kotlin.coroutines.intrinsics.IntrinsicsKt__IntrinsicsKt { *; }
--keep class kotlin.coroutines.jvm.internal.Boxing { *; }
--keep class kotlin.collections.IntIterator { *; }
--keep class kotlin.io.CloseableKt { *; }
--keep class kotlin.io.FilesKt { *; }
--keepclassmembers class kotlin.io.FilesKt** { public static *** writeText*(...); }
--keep class kotlinx.coroutines.BuildersKt { *; }
--keep class kotlinx.coroutines.AwaitKt { *; }
--keep class kotlinx.coroutines.flow.FlowKt { *; }
+# Instrumentation is a separate APK and consumes the public Kotlin runtime ABI.
+# Retain that shared ABI while still allowing R8 to optimize method bodies/call sites.
+-keep,allowoptimization class kotlin.** { public protected *; }
+-keep,allowoptimization class kotlinx.coroutines.** { public protected *; }
+-keep,allowoptimization class androidx.concurrent.futures.CallbackToFutureAdapter** { public protected *; }
