@@ -22,6 +22,6 @@
 
 # Instrumentation is a separate APK and consumes the public Kotlin runtime ABI.
 # Retain that shared ABI while still allowing R8 to optimize method bodies/call sites.
--keep,allowoptimization class kotlin.** { public protected *; }
--keep,allowoptimization class kotlinx.coroutines.** { public protected *; }
--keep,allowoptimization class androidx.concurrent.futures.CallbackToFutureAdapter** { public protected *; }
+-keep,allowoptimization class kotlin.** { public *; protected *; }
+-keep,allowoptimization class kotlinx.coroutines.** { public *; protected *; }
+-keep,allowoptimization class androidx.concurrent.futures.CallbackToFutureAdapter** { public *; protected *; }
