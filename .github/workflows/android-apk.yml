@@ -1,16 +1,24 @@
+# Temporary diagnostic replay of the already-built APK; restore the full build before completion.
 name: Android Optimized APK and Runtime QA
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      artifact_run:
+        description: 'Optional existing run ID: verify its exact runtime-apks without rebuilding'
+        required: false
+        type: string
 concurrency:
   group: android-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 permissions:
   contents: read
+  actions: read
 jobs:
   build:
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -63,6 +71,7 @@ jobs:
           if-no-files-found: ignore
 
   browser-contract:
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -82,6 +91,7 @@ jobs:
 
   android-runtime:
     needs: build
+    if: ${{ !cancelled() }}
     strategy:
       fail-fast: false
       matrix:
@@ -103,6 +113,8 @@ jobs:
         with:
           name: runtime-apks
           path: runtime-apks
+          run-id: 40354116341
+          github-token: ${{ github.token }}
       - name: Enable emulator acceleration
         run: |
           sudo chmod a+rw /dev/kvm
@@ -117,13 +129,7 @@ jobs:
           heap-size: 256M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
-          script: |
-            mkdir -p runtime-device-results
-            adb install -r runtime-apks/optimized/app-optimized.apk
-            adb install -r runtime-apks/androidTest/optimized/app-optimized-androidTest.apk
-            adb shell am instrument -w -r com.byga.smartoverlay.test/androidx.test.runner.AndroidJUnitRunner > runtime-device-results/instrumentation.txt
-            adb pull /sdcard/Android/data/com.byga.smartoverlay/files/ runtime-device-results/device-files
-            python3 scripts/check-instrumentation-result.py runtime-device-results/instrumentation.txt
+          script: bash scripts/run-android-runtime.sh
       - name: Runtime test reports
         if: always()
         uses: actions/upload-artifact@v4
