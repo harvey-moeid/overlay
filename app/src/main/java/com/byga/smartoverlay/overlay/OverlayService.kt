@@ -241,7 +241,18 @@ class OverlayService : Service() {
     }
     private fun dock() {
         val target=if(params.x < screenWidth/2) 0 else screenWidth-size
-        animator=ValueAnimator.ofInt(params.x,target).apply { duration=if(reducedMotion) 0 else 180; interpolator=DecelerateInterpolator(); addUpdateListener { params.x=it.animatedValue as Int; clamp(); update() }; start() }
+        if(reducedMotion || !ValueAnimator.areAnimatorsEnabled()) {
+            params.x=target;clamp();update();frameUpdates.flush()
+            return
+        }
+        animator=ValueAnimator.ofInt(params.x,target).apply {
+            duration=180;interpolator=DecelerateInterpolator()
+            addUpdateListener { params.x=it.animatedValue as Int;clamp();update() }
+            addListener(object:android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation:android.animation.Animator) { frameUpdates.flush() }
+            })
+            start()
+        }
     }
     override fun onConfigurationChanged(newConfig: Configuration) { super.onConfigurationChanged(newConfig);smartMapping.stop();stopPendingInput();screenWidth=resources.displayMetrics.widthPixels;screenHeight=resources.displayMetrics.heightPixels;resizeIcon(); if(bubble!=null) { clamp(); update() } }
     override fun onDestroy() { frameUpdates.cancel();stopPendingInput();closePanel(); smartMapping.stop();StudioSessions.unregister("manual-input");OverlayRuntime.setRunning(false); serviceScope.cancel(); panel?.let { runCatching { wm.removeView(it) } }; panel=null; animator?.cancel(); bubble?.let { it.animate().cancel(); runCatching { wm.removeView(it) } }; bubble=null; stopForeground(STOP_FOREGROUND_REMOVE); super.onDestroy() }

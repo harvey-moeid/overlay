@@ -3,6 +3,9 @@ set -euo pipefail
 mkdir -p runtime-device-results
 
 collect_diagnostics() {
+  adb logcat -d -v time > runtime-device-results/device-logcat.txt || true
+  adb shell dumpsys activity activities > runtime-device-results/activities.txt || true
+  adb exec-out screencap -p > runtime-device-results/final-screen.png || true
   adb shell dumpsys gfxinfo com.byga.smartoverlay framestats > runtime-device-results/gfxinfo-final.txt || true
   adb shell uiautomator dump /sdcard/byga-window.xml >/dev/null 2>&1 || true
   adb pull /sdcard/byga-window.xml runtime-device-results/window.xml >/dev/null 2>&1 || true
@@ -13,6 +16,17 @@ collect_diagnostics() {
   fi
 }
 trap collect_diagnostics EXIT
+adb shell wm dismiss-keyguard
+adb shell input keyevent KEYCODE_HOME
+adb shell uiautomator dump /sdcard/byga-os-ready.xml
+adb pull /sdcard/byga-os-ready.xml runtime-device-results/os-ready.xml
+python3 - <<'PY'
+import xml.etree.ElementTree as ET
+root=ET.parse("runtime-device-results/os-ready.xml").getroot()
+text=" ".join(node.get("text","") for node in root.iter()).casefold()
+if "isn't responding" in text or "not responding" in text:
+    raise SystemExit("Emulator OS is unresponsive before APK installation; runtime tests have not started")
+PY
 adb install -r runtime-apks/optimized/app-optimized.apk
 adb install -r runtime-apks/androidTest/optimized/app-optimized-androidTest.apk
 adb logcat -c

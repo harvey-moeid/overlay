@@ -44,11 +44,18 @@ class PerformanceDeviceTest {
             context.startForegroundService(Intent(context,OverlayService::class.java))
             val selector=By.descStartsWith("Robot BYGA:")
             assertTrue("Bubble attached",device.wait(Until.hasObject(selector),10_000))
-            repeat(5) {
-                val bounds=device.findObject(selector).visibleBounds
-                device.swipe(bounds.centerX(),bounds.centerY(),device.displayWidth*3/4,device.displayHeight/3,180)
+            repeat(5) { index ->
+                val bounds=checkNotNull(device.wait(Until.findObject(selector),3000)).visibleBounds
+                val targetX=if(index%2==0)device.displayWidth*3/4 else device.displayWidth/4
+                val targetY=if(index%2==0)device.displayHeight/3 else device.displayHeight/2
+                device.swipe(bounds.centerX(),bounds.centerY(),targetX,targetY,180)
                 device.waitForIdle()
-                assertNotNull("Bubble remains after drag",device.findObject(selector))
+                val after=device.wait(Until.findObject(selector),3000)
+                if(after==null) {
+                    File(context.getExternalFilesDir(null),"bubble-window-state.txt").writeText(device.executeShellCommand("dumpsys window"))
+                    device.takeScreenshot(File(context.getExternalFilesDir(null),"bubble-drag-failure.png"))
+                }
+                assertNotNull("Bubble remains after moving drag $index",after)
                 if(device.currentPackageName!=context.packageName) {
                     File(context.getExternalFilesDir(null),"bubble-window-state.txt").writeText(device.executeShellCommand("dumpsys window"))
                     device.takeScreenshot(File(context.getExternalFilesDir(null),"bubble-drag-failure.png"))

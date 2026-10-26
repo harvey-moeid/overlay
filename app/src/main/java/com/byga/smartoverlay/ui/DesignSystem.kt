@@ -13,8 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -75,7 +73,7 @@ val destinations=listOf(
     val workspaceRows=remember { destinations.filter { it.id in setOf("Chat","Workflows","Media & Social","AI Providers","Capture","Agent Experimental","Smart Mapping") }.chunked(2) }
     LazyColumn(modifier.testTag("dashboard-list"),contentPadding=PaddingValues(top=4.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
     item("hero") {
-    Box(Modifier.fillMaxWidth().graphicsLayer { compositingStrategy=CompositingStrategy.Offscreen }.background(Brush.linearGradient(listOf(Color(0xFF17325A),Color(0xFF111C34),Color(0xFF102B37))),RoundedCornerShape(30.dp)).border(1.dp,Color(0xFF35578A),RoundedCornerShape(30.dp)).padding(22.dp)) {
+    Box(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF17325A),Color(0xFF111C34),Color(0xFF102B37))),RoundedCornerShape(30.dp)).border(1.dp,Color(0xFF35578A),RoundedCornerShape(30.dp)).padding(22.dp)) {
         Column(Modifier.fillMaxWidth(0.67f),verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Eyebrow("Your everyday copilot")
             Text("Ide besar.\nKendali penuh.",style=MaterialTheme.typography.headlineLarge)
