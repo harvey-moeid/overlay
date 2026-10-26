@@ -29,8 +29,18 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Test and build debug APK
         run: ./gradlew testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug --no-daemon --console=plain
-      - name: Build optimized installable APK
-        run: ./gradlew assembleOptimized --no-daemon --console=plain
+      - name: Build optimized app and instrumentation APKs
+        run: ./gradlew assembleOptimized assembleOptimizedAndroidTest -PqaBuildType=optimized --no-daemon --console=plain
+      - name: Check runtime result parser
+        run: python3 -m unittest discover -s scripts -p 'test_instrumentation_result.py'
+      - name: Runtime APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-apks
+          path: |
+            app/build/outputs/apk/optimized/*.apk
+            app/build/outputs/apk/androidTest/optimized/*.apk
+          if-no-files-found: error
       - name: Upload installable optimized APK
         uses: actions/upload-artifact@v4
         with:
@@ -71,6 +81,7 @@ jobs:
           node scripts/test-workflow-adapter.cjs
 
   android-runtime:
+    needs: build
     strategy:
       fail-fast: false
       matrix:
@@ -88,7 +99,10 @@ jobs:
           cmdline-tools-version: '13114758'
           packages: 'platform-tools'
           log-accepted-android-sdk-licenses: false
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: runtime-apks
+          path: runtime-apks
       - name: Enable emulator acceleration
         run: |
           sudo chmod a+rw /dev/kvm
@@ -104,8 +118,12 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           script: |
-            ./gradlew connectedOptimizedAndroidTest -PqaBuildType=optimized --no-daemon --console=plain
-            adb pull /sdcard/Android/data/com.byga.smartoverlay/files/ runtime-device-results
+            mkdir -p runtime-device-results
+            adb install -r runtime-apks/optimized/app-optimized.apk
+            adb install -r runtime-apks/androidTest/optimized/app-optimized-androidTest.apk
+            adb shell am instrument -w -r com.byga.smartoverlay.test/androidx.test.runner.AndroidJUnitRunner > runtime-device-results/instrumentation.txt
+            adb pull /sdcard/Android/data/com.byga.smartoverlay/files/ runtime-device-results/device-files
+            python3 scripts/check-instrumentation-result.py runtime-device-results/instrumentation.txt
       - name: Runtime test reports
         if: always()
         uses: actions/upload-artifact@v4
