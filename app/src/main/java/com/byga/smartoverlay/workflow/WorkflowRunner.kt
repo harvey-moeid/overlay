@@ -32,6 +32,12 @@ class WorkflowRunner(private val port: WorkflowPort) {
     }
     fun approve() { approval?.complete(true) }
     fun stop() { stopped=true; approval?.complete(false); _snapshot.value=_snapshot.value.copy(state=RunState.STOPPED,note="Dihentikan; tidak ada langkah berikutnya") }
+    private suspend fun awaitRunning(): Boolean {
+        currentCoroutineContext().ensureActive()
+        while(paused && !stopped) delay(100)
+        currentCoroutineContext().ensureActive()
+        return !stopped
+    }
     companion object { private val lock=Mutex(); fun hasActiveRun()=lock.isLocked; val supported=setOf(Action.CLICK_MAPPING,Action.COPY_TEXT,Action.DELAY,Action.LAUNCH_APP,Action.GENERATE_AI_TEXT,Action.REQUEST_USER_APPROVAL,Action.DOWNLOAD_URL,Action.STOP)+WebWorkflowPolicy.actions }
     suspend fun run(plan: Plan, approvedHash: String?, checkpoint: SavedCheckpoint?=null) {
         if(!Guard.canRun(plan,approvedHash) || (checkpoint!=null && !CheckpointPolicy.mayResume(plan,checkpoint))) { _snapshot.value=WorkflowSnapshot(RunState.BLOCKED,note="Review versi atau checkpoint tidak valid/hasil sebelumnya tidak pasti"); return }
@@ -41,13 +47,13 @@ class WorkflowRunner(private val port: WorkflowPort) {
         val start=checkpoint?.next ?: 0
         try {
             for(i in start until plan.steps.size) {
-                currentCoroutineContext().ensureActive()
-                while(paused && !stopped) delay(100)
-                if(stopped)return
+                if(!awaitRunning())return
                 val step=plan.steps[i]
                 _snapshot.value=WorkflowSnapshot(RunState.RUNNING,i,plan.steps.size,"${step.action}",output)
                 if(step.action !in supported) { _snapshot.value=_snapshot.value.copy(state=RunState.BLOCKED,note="Aksi ${step.action} belum memiliki adapter teruji"); return }
-                if(!port.ready(step)) { _snapshot.value=_snapshot.value.copy(state=RunState.WAITING_FOR_USER,note="Perangkat/foreground belum siap. Tinjau checkpoint sebelum melanjutkan."); return }
+                val ready=port.ready(step)
+                if(!awaitRunning())return
+                if(!ready) { _snapshot.value=_snapshot.value.copy(state=RunState.WAITING_FOR_USER,note="Perangkat/foreground belum siap. Tinjau checkpoint sebelum melanjutkan."); return }
                 if(step.action==Action.REQUEST_USER_APPROVAL) {
                     approval=CompletableDeferred()
                     _snapshot.value=_snapshot.value.copy(state=RunState.WAITING_FOR_USER,note=step.value.ifBlank{"Tinjau hasil dan setujui langkah berikutnya"})
@@ -55,21 +61,28 @@ class WorkflowRunner(private val port: WorkflowPort) {
                     approval=null
                 } else if(step.action==Action.DELAY) {
                     var remaining=step.value.toLong()
-                    while(remaining>0) { currentCoroutineContext().ensureActive(); if(stopped)return; while(paused && !stopped)delay(100); val chunk=minOf(100L,remaining); delay(chunk); remaining-=chunk }
+                    while(remaining>0) { if(!awaitRunning())return; val chunk=minOf(100L,remaining); delay(chunk); remaining-=chunk }
                 } else if(step.action==Action.STOP) { break }
                 else {
                     // Persist uncertainty before external side effects. Process death cannot blindly replay this step.
                     port.checkpoint(plan,i,true,output)
-                    if(stopped)return
+                    if(!awaitRunning())return
                     output=withTimeout(if(step.action in WebWorkflowPolicy.actions || step.action==Action.CLICK_MAPPING)600000L else 120000L){port.act(step,output)}
                 }
                 if(stopped)return
                 port.checkpoint(plan,i+1,false,output)
             }
-            if(!stopped) { port.checkpoint(plan,plan.steps.size,false,output); _snapshot.value=_snapshot.value.copy(state=RunState.SUCCEEDED,index=plan.steps.size,note=if(plan.steps.any{it.action==Action.CLICK_MAPPING})"Semua perintah klik dikirim satu kali; periksa hasil di aplikasi tujuan" else "Semua langkah yang didukung selesai",output=output) }
-        } catch(e: TimeoutCancellationException) { _snapshot.value=_snapshot.value.copy(state=RunState.BLOCKED,note="Batas waktu langkah tercapai. Periksa hasil di aplikasi/situs sebelum memulai ulang; aksi tidak diulang otomatis.") }
+            if(!awaitRunning())return
+            port.checkpoint(plan,plan.steps.size,false,output)
+            if(!awaitRunning())return
+            _snapshot.value=_snapshot.value.copy(state=RunState.SUCCEEDED,index=plan.steps.size,note=if(plan.steps.any{it.action==Action.CLICK_MAPPING})"Semua perintah klik dikirim satu kali; periksa hasil di aplikasi tujuan" else "Semua langkah yang didukung selesai",output=output)
+        } catch(e: TimeoutCancellationException) {
+            // Only a step's own deadline is a recoverable failure; cancellation of the run must propagate.
+            if(!currentCoroutineContext().isActive) { stop(); throw e }
+            if(!stopped)_snapshot.value=_snapshot.value.copy(state=RunState.BLOCKED,note="Batas waktu langkah tercapai. Periksa hasil di aplikasi/situs sebelum memulai ulang; aksi tidak diulang otomatis.")
+        }
         catch(e: CancellationException) { stop(); throw e }
-        catch(e: Exception) { _snapshot.value=_snapshot.value.copy(state=RunState.BLOCKED,note=e.message ?: "Langkah gagal; cek hasil manual sebelum retry") }
+        catch(e: Exception) { if(!stopped)_snapshot.value=_snapshot.value.copy(state=RunState.BLOCKED,note=e.message ?: "Langkah gagal; cek hasil manual sebelum retry") }
         finally { running=false; approval=null; lock.unlock() }
     }
 }

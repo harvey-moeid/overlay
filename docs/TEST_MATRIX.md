@@ -2,6 +2,15 @@
 
 `VERIFIED_LOCALLY`: perintah cloud benar-benar dijalankan. `VERIFIED_BY_CI`: hanya run GitHub sukses terkait SHA. `NEEDS_REAL_DEVICE`: tidak dapat dibuktikan dari build. Hasil emulator berbeda dari HP fisik dan tidak membuktikan kompatibilitas aplikasi lain.
 
+## Validasi perbaikan kontrol workflow 0.6.1 — 27 Oktober 2026
+
+- Keenam tes `WorkflowControlTest` gagal pada kode runner sebelum perbaikan dan lulus setelahnya. Cakupan: pause saat readiness/checkpoint, Stop saat readiness/final checkpoint, tidak membuka approval baru setelah Stop, dan propagasi timeout pemanggil dengan checkpoint uncertain tetap tersimpan.
+- `./scripts/cloud-build.sh testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug`: **BUILD SUCCESSFUL**. **208/208 tes JVM lulus**, 0 failure/error/skipped. Android Lint: 0 error/fatal, 80 warning nonblocking.
+- `node scripts/test-workflow-adapter.cjs`: PASS pada fixture Chromium offline ChatGPT/Flow.
+- APK aplikasi dan instrumentation berhasil dibangun; tanda tangan APK debug diverifikasi dengan `apksigner verify` (exit 0). APK aplikasi berada di `app/build/outputs/apk/debug/app-debug.apk`.
+- Build/Chromium dijalankan dengan izin eksekusi tambahan karena sandbox membatasi socket lokal. Percobaan build offline awal terhenti karena dependensi UIAutomator belum ada di cache; build normal di atas berhasil mengunduh dependensi dan menyelesaikan seluruh gerbang.
+- Tes instrumentation belum dieksekusi pada HP/emulator. Kompatibilitas Samsung dan situs/aplikasi asli tetap NEEDS_REAL_DEVICE.
+
 ## Validasi build dan logic
 
 - Perintah: `./scripts/cloud-build.sh testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug`.

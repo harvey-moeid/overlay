@@ -10,11 +10,15 @@ Provider secrets use suspend APIs with IO dispatch and a shared mutex for Keysto
 
 Browser readiness now has a separate 60-second deadline. Failed page loads stop immediately. The workflow Monitor shows waiting instructions for login, foreground, loading and unlock; long video generation can still use the existing ten-minute outer action limit. External effects are not retried automatically. Stop/cancellation preserves uncertain checkpoints for manual inspection.
 
+The runner rechecks pause/Stop after readiness checks and checkpoint writes, before dispatching an external action and before reporting success. Stop during a readiness check cannot open a new approval gate or replace STOPPED with a waiting/success state. A timeout from the caller propagates as cancellation and preserves the uncertain checkpoint; the runner's own step deadline still reports BLOCKED without replay.
+
 Persisted libraries and workflow steps compose eight entries per page (previous/next controls); mapping detection shows twelve buttons per page. Prompt parsing/filtering runs on Default. Dashboard counters query SQL counts rather than whole workflow/account payloads; chat history and execution/diagnostic feeds query bounded recent results. Library data remains local and no saved entry is deleted by pagination.
 
 ## Verification
 
 Regression coverage includes outside-touch flags with keyboard focus preserved, compact visual/touch sizing, a 1,000-entry library with pagination, off-caller-thread Accessibility traversal, scan cancellation/deadlines, failed-page/login timeout/cancellation, and the existing mapping authorization and workflow uncertain-checkpoint suites. The build also compiles instrumentation tests and runs Android lint. JVM/UI fixtures are not proof of Samsung One UI or live ChatGPT/Flow compatibility.
+
+`WorkflowControlTest` additionally covers pause during readiness/checkpoint writes, Stop during readiness/final checkpoint writes, approval-gate suppression after Stop, and caller timeout propagation.
 
 ## Device smoke test
 
