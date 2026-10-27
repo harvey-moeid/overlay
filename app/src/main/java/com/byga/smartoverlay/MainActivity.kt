@@ -112,14 +112,14 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(message) { if(message.isNotBlank()) snack.showSnackbar(message,duration=SnackbarDuration.Short) }
         BygaTheme {
             Scaffold(containerColor=Ink, modifier=Modifier.imePadding(), contentWindowInsets=WindowInsets(0,0,0,0),
-                topBar={ Row(Modifier.fillMaxWidth().background(Ink).statusBarsPadding().padding(horizontal=20.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
+                topBar={ Row(Modifier.fillMaxWidth().cachedTileLayer().background(Ink).statusBarsPadding().padding(horizontal=20.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
                     Row(Modifier.weight(1f),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                         RobotImage(48.dp,"Logo robot BYGA BG",Modifier.size(48.dp))
                         Column(Modifier.weight(1f)) { Text("BYGA",style=MaterialTheme.typography.titleLarge,maxLines=1); Text("SMART OVERLAY STUDIO",style=MaterialTheme.typography.labelSmall,color=Muted,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
                     }
                     Row { IconButton(onClick={showMessage=true}){Icon(Icons.Default.Info,"Lihat status",tint=Muted)}; TextButton(onClick={stop();message="Semua request/workflow dihentikan dan bubble ditutup"}) { Icon(Icons.Default.Close,"Stop darurat semua sesi",tint=Color(0xFFFF849A),modifier=Modifier.size(16.dp));Text("STOP",color=Color(0xFFFF849A),style=MaterialTheme.typography.labelSmall) } }
                 } },
-                bottomBar={ NavigationBar(containerColor=Color(0xFF0E1728),tonalElevation=0.dp) {
+                bottomBar={ NavigationBar(modifier=Modifier.cachedTileLayer(),containerColor=Color(0xFF0E1728),tonalElevation=0.dp) {
                     listOf("Home","Chat","Workflows","Media & Social").forEach { id -> val d=destinations.first{it.id==id}; NavigationBarItem(selected=tab==id,onClick={tab=id},icon={Icon(d.icon,d.title)},label={Text(when(id){"Workflows"->"Alur";"Media & Social"->"Media";"Chat"->"Chat";else->"Home"})},colors=NavigationBarItemDefaults.colors(indicatorColor=Color(0xFF233E6A),selectedIconColor=Cyan)) }
                     NavigationBarItem(selected=tab !in listOf("Home","Chat","Workflows","Media & Social"),onClick={modules=true},icon={Icon(Icons.Default.Menu,"Semua modul")},label={Text("Lainnya")})
                 } },snackbarHost={SnackbarHost(snack)}

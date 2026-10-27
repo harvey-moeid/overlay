@@ -93,7 +93,7 @@ class OverlayService : Service() {
             override fun performLongClick(): Boolean { StudioSessions.stopAll(); AgentSessions.stopAll(); stopSelf(); return true }
         }.apply {
             scaleType=ImageView.ScaleType.FIT_CENTER
-            contentDescription="Robot BYGA: ketuk buka panel, tahan untuk stop, geser untuk pindah"
+            contentDescription="Robot BYGA: ketuk buka panel, tahan lalu lepas untuk stop, geser untuk pindah"
             isFocusable=true
             isClickable=true
             isLongClickable=true
@@ -104,35 +104,26 @@ class OverlayService : Service() {
                 }
             }
         }
-        var longPressed=false
-        var dragged=false
-        val detector=GestureDetector(this,object: GestureDetector.SimpleOnGestureListener() {
-            override fun onDown(e: android.view.MotionEvent) = true
-            override fun onSingleTapUp(e: android.view.MotionEvent) = true
-            override fun onLongPress(e: android.view.MotionEvent) { if(!dragged) { longPressed=true; view.performLongClick() } }
-        })
         screenWidth=resources.displayMetrics.widthPixels;screenHeight=resources.displayMetrics.heightPixels
         val touchSlop=ViewConfiguration.get(this).scaledTouchSlop
+        val gesture=BubbleGesture(touchSlop,ViewConfiguration.getLongPressTimeout().toLong())
         var startX=0; var startY=0; var touchX=0f; var touchY=0f
         view.setOnTouchListener { _, event ->
             when(event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { animator?.cancel(); frameUpdates.cancel(); startX=params.x; startY=params.y; touchX=event.rawX; touchY=event.rawY; dragged=false; longPressed=false; detector.onTouchEvent(event) }
+                MotionEvent.ACTION_DOWN -> { animator?.cancel(); frameUpdates.cancel(); startX=params.x; startY=params.y; touchX=event.rawX; touchY=event.rawY; gesture.down(event.rawX,event.rawY,event.eventTime) }
                 MotionEvent.ACTION_MOVE -> {
-                    if (!dragged && kotlin.math.abs(event.rawX-touchX)+kotlin.math.abs(event.rawY-touchY)>touchSlop) {
-                        dragged=true
-                        // Local coordinates follow the moving window, so GestureDetector may
-                        // otherwise treat a long raw-coordinate drag as a stationary hold.
-                        MotionEvent.obtain(event).also { cancel ->
-                            cancel.action=MotionEvent.ACTION_CANCEL
-                            detector.onTouchEvent(cancel)
-                            cancel.recycle()
-                        }
-                    }
-                    if(!dragged)detector.onTouchEvent(event)
-                    if (dragged) { params.x=(startX+event.rawX-touchX).toInt(); params.y=(startY+event.rawY-touchY).toInt(); clamp(); update() }
+                    // Inspect batched samples too: moving away and back is still a drag.
+                    for(i in 0 until event.historySize)gesture.move(event.getHistoricalX(i)+event.rawX-event.x,event.getHistoricalY(i)+event.rawY-event.y)
+                    gesture.move(event.rawX,event.rawY)
+                    if (gesture.dragged) { params.x=(startX+event.rawX-touchX).toInt(); params.y=(startY+event.rawY-touchY).toInt(); clamp(); update() }
                 }
-                MotionEvent.ACTION_UP -> { if(!dragged)detector.onTouchEvent(event); if(!dragged && !longPressed) view.performClick(); if(dragged && !longPressed) { frameUpdates.flush();dock() } }
-                MotionEvent.ACTION_CANCEL -> { detector.onTouchEvent(event);frameUpdates.flush();if(dragged)dock() }
+                MotionEvent.ACTION_UP -> { when(gesture.up(event.rawX,event.rawY,event.eventTime)) {
+                    BubbleGesture.Release.TAP -> view.performClick()
+                    BubbleGesture.Release.HOLD -> view.performLongClick()
+                    BubbleGesture.Release.DRAG -> { params.x=(startX+event.rawX-touchX).toInt();params.y=(startY+event.rawY-touchY).toInt();clamp();update();frameUpdates.flush();dock() }
+                    BubbleGesture.Release.NONE -> Unit
+                } }
+                MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_DOWN -> { val wasDragged=gesture.dragged;gesture.cancel();frameUpdates.flush();if(wasDragged)dock() }
             }; true
         }
         try { wm.addView(view,params); bubble=view; resizeIcon(); OverlayRuntime.setRunning(true)
