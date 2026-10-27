@@ -1,5 +1,6 @@
 package com.byga.smartoverlay.mapping
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.content.Intent
 import android.provider.Settings
 import android.os.SystemClock
@@ -22,8 +23,8 @@ import java.util.UUID
 
 @Composable fun MappingStudio() {
     val context=LocalContext.current;val scope=rememberCoroutineScope();val dao=remember{BygaDatabase.get(context).records()}
-    val rows by remember{dao.observe("button_mapping")}.collectAsState(initial=emptyList())
-    val results by remember{dao.observe("mapping_test")}.collectAsState(initial=emptyList())
+    val rows by remember{dao.observe("button_mapping")}.collectAsStateWithLifecycle(initialValue=emptyList())
+    val results by remember{dao.observe("mapping_test")}.collectAsStateWithLifecycle(initialValue=emptyList())
     var note by remember{mutableStateOf("")};var test by remember{mutableStateOf<ButtonMapping?>(null)}
     var edit by remember{mutableStateOf<ButtonMapping?>(null)};var editName by remember{mutableStateOf("")};var ask by remember{mutableStateOf(false)}
     var busy by remember{mutableStateOf(false)};var demoCount by remember{mutableIntStateOf(0)}

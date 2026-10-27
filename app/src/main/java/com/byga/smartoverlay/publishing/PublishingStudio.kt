@@ -1,5 +1,6 @@
 package com.byga.smartoverlay.publishing
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.net.Uri
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,7 +27,7 @@ import java.util.UUID
 @Composable fun PublishingStudio(initialCaption: String,onCaption:(String)->Unit,onAccounts:()->Unit) {
     val context=LocalContext.current;val scope=rememberCoroutineScope();val dao=remember{BygaDatabase.get(context).records()}
     DisposableEffect(Unit){StudioSessions.register("publisher"){scope.coroutineContext.cancelChildren()};onDispose{StudioSessions.unregister("publisher")}}
-    val drafts by remember{dao.observe("social_draft")}.collectAsState(initial=emptyList());val accountRows by remember{dao.observe("account")}.collectAsState(initial=emptyList())
+    val drafts by remember{dao.observe("social_draft")}.collectAsStateWithLifecycle(initialValue=emptyList());val accountRows by remember{dao.observe("account")}.collectAsStateWithLifecycle(initialValue=emptyList())
     val accounts=accountRows.map{AccountProfile.decode(it)}
     var id by rememberSaveable{mutableStateOf(UUID.randomUUID().toString())};var caption by rememberSaveable{mutableStateOf(initialCaption)};var hashtags by rememberSaveable{mutableStateOf("")}
     var uriText by rememberSaveable{mutableStateOf("")};var pkg by rememberSaveable{mutableStateOf("com.instagram.android")};var accountId by rememberSaveable{mutableStateOf("")}

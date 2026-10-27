@@ -1,16 +1,23 @@
-name: Android Debug APK
+name: Android Optimized APK and Runtime QA
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      artifact_run:
+        description: 'Optional existing run ID: verify its exact runtime-apks without rebuilding'
+        required: false
+        type: string
 concurrency:
   group: android-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 permissions:
   contents: read
+  actions: read
 jobs:
   build:
+    if: ${{ inputs.artifact_run == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -29,11 +36,23 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Test and build debug APK
         run: ./gradlew testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug --no-daemon --console=plain
-      - name: Upload installable debug APK
+      - name: Build optimized app and instrumentation APKs
+        run: ./gradlew assembleOptimized assembleOptimizedAndroidTest -PqaBuildType=optimized --no-daemon --console=plain
+      - name: Check runtime result parser
+        run: python3 -m unittest discover -s scripts -p 'test_instrumentation_result.py'
+      - name: Runtime APKs
         uses: actions/upload-artifact@v4
         with:
-          name: BYGA-Smart-Overlay-debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: runtime-apks
+          path: |
+            app/build/outputs/apk/optimized/*.apk
+            app/build/outputs/apk/androidTest/optimized/*.apk
+          if-no-files-found: error
+      - name: Upload installable optimized APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BYGA-Smart-Overlay-optimized
+          path: app/build/outputs/apk/optimized/*.apk
           if-no-files-found: error
       - name: Unit test reports
         if: always()
@@ -61,9 +80,61 @@ jobs:
       - name: Install fixture browser
         run: |
           npm install --prefix "$RUNNER_TEMP/byga-dom" --no-save --package-lock=false --no-audit --no-fund playwright@1.56.1
-          node "$RUNNER_TEMP/byga-dom/node_modules/playwright/cli.js" install --with-deps chromium
+          node "$RUNNER_TEMP/byga-dom/node_modules/playwright/cli.js" install chromium
       - name: Test browser adapter fixtures
         run: |
           export NODE_PATH="$RUNNER_TEMP/byga-dom/node_modules"
           export BYGA_CHROMIUM="$(node -p "require('playwright').chromium.executablePath()")"
           node scripts/test-workflow-adapter.cjs
+
+  android-runtime:
+    needs: build
+    if: ${{ !cancelled() && (needs.build.result == 'success' || inputs.artifact_run != '') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [35, 36]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '13114758'
+          packages: 'platform-tools'
+          log-accepted-android-sdk-licenses: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: runtime-apks
+          path: runtime-apks
+          run-id: ${{ inputs.artifact_run || github.run_id }}
+          github-token: ${{ github.token }}
+      - name: Enable emulator acceleration
+        run: |
+          sudo chmod a+rw /dev/kvm
+      - name: Run optimized APK on Android ${{ matrix.api }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          ram-size: 3072M
+          heap-size: 256M
+          disable-animations: true
+          emulator-options: -no-window -gpu software -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash scripts/run-android-runtime.sh
+      - name: Runtime test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-runtime-results-api${{ matrix.api }}
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            runtime-device-results/
+          if-no-files-found: ignore

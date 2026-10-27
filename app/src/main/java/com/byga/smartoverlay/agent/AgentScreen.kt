@@ -1,5 +1,6 @@
 package com.byga.smartoverlay.agent
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.byga.smartoverlay.ui.PagedItems
 import android.app.KeyguardManager
 import com.byga.smartoverlay.ui.StudioSessions
@@ -37,13 +38,13 @@ fun AgentScreen() {
     val db=remember { BygaDatabase.get(context) }
     val dao=db.agent()
     val flag=remember { booleanPreferencesKey("experimentalAgentEnabled") }
-    val enabled by remember { context.settings.data.map { it[flag] ?: false } }.collectAsState(initial=false)
+    val enabled by remember { context.settings.data.map { it[flag] ?: false } }.collectAsStateWithLifecycle(initialValue=false)
     val currentEnabled by rememberUpdatedState(enabled)
-    val memories by remember { dao.memories() }.collectAsState(initial=emptyList())
-    val skills by remember { dao.skills() }.collectAsState(initial=emptyList())
-    val tasks by remember { dao.tasks() }.collectAsState(initial=emptyList())
-    val compatibility by remember { dao.compatibility() }.collectAsState(initial=emptyList())
-    val providers by remember { db.records().observe("provider") }.collectAsState(initial=emptyList())
+    val memories by remember { dao.memories() }.collectAsStateWithLifecycle(initialValue=emptyList())
+    val skills by remember { dao.skills() }.collectAsStateWithLifecycle(initialValue=emptyList())
+    val tasks by remember { dao.tasks() }.collectAsStateWithLifecycle(initialValue=emptyList())
+    val compatibility by remember { dao.compatibility() }.collectAsStateWithLifecycle(initialValue=emptyList())
+    val providers by remember { db.records().observe("provider") }.collectAsStateWithLifecycle(initialValue=emptyList())
     var section by remember { mutableStateOf("Chat & Scope") }
     var goal by remember { mutableStateOf("Tulis tiga ide caption di kolom uji BYGA") }
     var transcript by remember { mutableStateOf("") }

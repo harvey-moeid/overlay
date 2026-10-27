@@ -1,5 +1,6 @@
 package com.byga.smartoverlay
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.Manifest
 import com.byga.smartoverlay.scheduler.ScheduleStudio
 import com.byga.smartoverlay.ui.*
@@ -60,6 +61,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
+    private val frameMonitor by lazy { com.byga.smartoverlay.performance.WindowFrameMonitor(window) }
+    override fun onResume(){super.onResume();frameMonitor.start()}
+    override fun onPause(){frameMonitor.stop();super.onPause()}
+    override fun onDestroy(){frameMonitor.close();super.onDestroy()}
     private var requestedDestination by mutableStateOf<String?>(null)
     private fun destination(intent:Intent?)=when { intent?.getBooleanExtra("open_mapping",false)==true -> "Smart Mapping";intent?.getBooleanExtra("open_workflow",false)==true -> "Workflows";intent?.getBooleanExtra("open_capture",false)==true -> "Capture";intent?.getBooleanExtra("open_schedule",false)==true -> "Scheduler";else -> null }
     override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); requestedDestination=destination(intent);setContent { BygaApp() } }
@@ -90,17 +95,17 @@ class MainActivity : ComponentActivity() {
             media=uri
             if(uri!=null) runCatching { contentResolver.takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION) }
         }
-        val workflowCount by remember(dao) { dao.count("workflow") }.collectAsState(initial=0)
-        val appProfiles by remember(dao) { dao.observe("app") }.collectAsState(initial=emptyList())
-        val accountCount by remember(dao) { dao.count("account") }.collectAsState(initial=0)
-        val providers by remember(dao) { dao.observe("provider") }.collectAsState(initial=emptyList())
-        val executions by remember(dao) { dao.recent("execution",20) }.collectAsState(initial=emptyList())
-        val diagnostics by remember(dao) { dao.recent("diagnostic",30) }.collectAsState(initial=emptyList())
-        val schedules by remember(dao) { dao.observe("schedule") }.collectAsState(initial=emptyList())
+        val workflowCount by remember(dao) { dao.count("workflow") }.collectAsStateWithLifecycle(initialValue=0)
+        val appProfiles by remember(dao) { dao.observe("app") }.collectAsStateWithLifecycle(initialValue=emptyList())
+        val accountCount by remember(dao) { dao.count("account") }.collectAsStateWithLifecycle(initialValue=0)
+        val providers by remember(dao) { dao.observe("provider") }.collectAsStateWithLifecycle(initialValue=emptyList())
+        val executions by remember(dao) { dao.recent("execution",20) }.collectAsStateWithLifecycle(initialValue=emptyList())
+        val diagnostics by remember(dao) { dao.recent("diagnostic",30) }.collectAsStateWithLifecycle(initialValue=emptyList())
+        val schedules by remember(dao) { dao.observe("schedule") }.collectAsStateWithLifecycle(initialValue=emptyList())
         fun stop() { StudioSessions.stopAll(); AgentSessions.stopAll(); stopService(Intent(this,OverlayService::class.java)); scope.launch { dao.save(Record("audit","last-stop","Pengguna menekan Stop darurat")) } }
-        val bubbleRunning by com.byga.smartoverlay.overlay.OverlayRuntime.running.collectAsState()
+        val bubbleRunning by com.byga.smartoverlay.overlay.OverlayRuntime.running.collectAsStateWithLifecycle()
         fun toggleBubble() { if(bubbleRunning) {stopService(Intent(this,OverlayService::class.java));AgentSessions.stopAll()} else if(overlay) ContextCompat.startForegroundService(this,Intent(this,OverlayService::class.java)) else tab="Mulai" }
-        val reduced by remember { settings.data.map { it[booleanPreferencesKey("reduced_motion")] ?: false } }.collectAsState(initial=false)
+        val reduced by remember { settings.data.map { it[booleanPreferencesKey("reduced_motion")] ?: false } }.collectAsStateWithLifecycle(initialValue=false)
         var modules by remember { mutableStateOf(false) }
         var showMessage by remember { mutableStateOf(false) }
         val snack=remember { SnackbarHostState() }
@@ -109,7 +114,7 @@ class MainActivity : ComponentActivity() {
             Scaffold(containerColor=Ink, modifier=Modifier.imePadding(), contentWindowInsets=WindowInsets(0,0,0,0),
                 topBar={ Row(Modifier.fillMaxWidth().background(Ink).statusBarsPadding().padding(horizontal=20.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
                     Row(Modifier.weight(1f),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-                        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(com.byga.smartoverlay.R.drawable.byga_robot),"Logo robot BYGA BG",Modifier.size(48.dp))
+                        RobotImage(48.dp,"Logo robot BYGA BG",Modifier.size(48.dp))
                         Column(Modifier.weight(1f)) { Text("BYGA",style=MaterialTheme.typography.titleLarge,maxLines=1); Text("SMART OVERLAY STUDIO",style=MaterialTheme.typography.labelSmall,color=Muted,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
                     }
                     Row { IconButton(onClick={showMessage=true}){Icon(Icons.Default.Info,"Lihat status",tint=Muted)}; TextButton(onClick={stop();message="Semua request/workflow dihentikan dan bubble ditutup"}) { Icon(Icons.Default.Close,"Stop darurat semua sesi",tint=Color(0xFFFF849A),modifier=Modifier.size(16.dp));Text("STOP",color=Color(0xFFFF849A),style=MaterialTheme.typography.labelSmall) } }
@@ -120,7 +125,11 @@ class MainActivity : ComponentActivity() {
                 } },snackbarHost={SnackbarHost(snack)}
             ) { insets ->
                 screenState.SaveableStateProvider(tab) {
-                Column(Modifier.fillMaxSize().padding(insets).background(Brush.verticalGradient(listOf(Ink,Color(0xFF0B1424)))).padding(horizontal=18.dp).verticalScroll(rememberScrollState()).padding(bottom=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                if(tab=="Chat") {
+                    ChatStudio(initialPrompt=chatSeed,onDraft={prompt=it;tab="Media & Social"},onNavigateProviders={tab="AI Providers"},modifier=Modifier.fillMaxSize().padding(insets).background(Ink).padding(horizontal=18.dp))
+                } else if(tab=="Home") {
+                    Dashboard(overlay,accessibility,providers.size,workflowCount,accountCount,bubbleRunning,{tab=it},::toggleBubble,Modifier.fillMaxSize().padding(insets).background(Ink).padding(horizontal=18.dp))
+                } else Column(Modifier.fillMaxSize().padding(insets).background(Brush.verticalGradient(listOf(Ink,Color(0xFF0B1424)))).padding(horizontal=18.dp).verticalScroll(rememberScrollState()).padding(bottom=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                     if(tab!="Home") { val d=destinations.firstOrNull{it.id==tab}; Column(Modifier.padding(top=12.dp,bottom=4.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){Eyebrow("BYGA / ${d?.title ?: tab}"); Text(d?.title ?: tab,style=MaterialTheme.typography.headlineLarge); Text(d?.caption ?: "",color=Muted)} } else Spacer(Modifier.height(4.dp))
                         when(tab) {
                             "Mulai" -> {
@@ -135,8 +144,6 @@ class MainActivity : ComponentActivity() {
                                 Button(onClick={ if(overlay) { ContextCompat.startForegroundService(this@MainActivity,Intent(this@MainActivity,OverlayService::class.java)); message="Bubble diminta; verifikasi tampil di HP" } else message="Berikan izin overlay terlebih dahulu" }) { Text("Mulai bubble") }
                             }
                             "Agent Experimental" -> { AgentScreen() }
-                            "Home" -> { Dashboard(overlay,accessibility,providers.size,workflowCount,accountCount,bubbleRunning,{tab=it},::toggleBubble) }
-                            "Chat" -> { ChatStudio(initialPrompt=chatSeed,onDraft={prompt=it;tab="Media & Social"},onNavigateProviders={tab="AI Providers"}) }
                             "Capture" -> { CaptureScreen() }
                             "Studio" -> { PromptLibrary(onChat={chatSeed=it;tab="Chat"},onDraft={prompt=it;tab="Media & Social"}) }
                             "Monitor" -> { RuntimeMonitor() }
@@ -191,6 +198,7 @@ class MainActivity : ComponentActivity() {
                             }
                             "Settings" -> {
                                 Text("Privasi & kontrol",style=MaterialTheme.typography.headlineSmall)
+                                PerformanceControls()
                                 MascotSettings()
                                 DataControls()
                                 Text("Tidak ada analytics/backend. API key dienkripsi, tidak dibackup. Perangkat yang telah dikompromikan tetap berisiko. Capture hanya berjalan per sesi dengan consent sistem dan review lokal. Aksi Accessibility agent masih dibatasi ke kolom uji BYGA.")

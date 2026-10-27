@@ -1,5 +1,6 @@
 package com.byga.smartoverlay.capture
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.app.Activity
 import android.content.Intent
 import android.graphics.BitmapFactory
@@ -30,7 +31,7 @@ import java.io.File
 
 @Composable fun CaptureScreen(){
     val context=LocalContext.current;val scope=rememberCoroutineScope();val dao=remember{BygaDatabase.get(context).records()}
-    val captures by remember{dao.observe("capture")}.collectAsState(initial=emptyList());val errors by remember{dao.observe("capture_error")}.collectAsState(initial=emptyList())
+    val captures by remember{dao.observe("capture")}.collectAsStateWithLifecycle(initialValue=emptyList());val errors by remember{dao.observe("capture_error")}.collectAsStateWithLifecycle(initialValue=emptyList())
     var requested by remember{mutableStateOf(context.packageName)};var consent by remember{mutableStateOf(false)};var note by remember{mutableStateOf("")};var share by remember{mutableStateOf<Pair<String,Uri>?>(null)}
     val launch=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
         if(result.resultCode==Activity.RESULT_OK && result.data!=null){

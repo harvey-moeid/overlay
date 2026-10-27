@@ -27,6 +27,7 @@ import kotlin.coroutines.resume
 class WorkflowBrowserActivity:ComponentActivity() {
     private lateinit var web:WebView
     private lateinit var message:TextView
+    private val frameMonitor by lazy { com.byga.smartoverlay.performance.WindowFrameMonitor(window) }
     private lateinit var address:TextView
     private lateinit var pause:Button
     private var resumed=false
@@ -104,9 +105,10 @@ class WorkflowBrowserActivity:ComponentActivity() {
         val url=when(intent.getStringExtra("mapping_site")){"chatgpt"->"https://chatgpt.com/";"flow"->"https://labs.google/fx/tools/flow";else->null}
         if(url!=null && !WorkflowBrowserSession.isActive()){web.loadUrl(url);message.text="Buka layar tujuan, lalu pilih Mapping. Login dilakukan manual."}
     }
-    override fun onResume() { super.onResume();resumed=true;MappingBrowserContext.visible=true;MappingBrowserContext.url=web.url.orEmpty();WorkflowBrowserSession.visible=true;if(::web.isInitialized)web.onResume();if(::pause.isInitialized)pause.text=if(WorkflowBrowserSession.paused)"Lanjut" else "Jeda" }
-    override fun onPause() { resumed=false;MappingBrowserContext.visible=false;WorkflowBrowserSession.visible=false;if(::web.isInitialized)web.onPause();super.onPause() }
+    override fun onResume() { super.onResume();frameMonitor.start();resumed=true;MappingBrowserContext.visible=true;MappingBrowserContext.url=web.url.orEmpty();WorkflowBrowserSession.visible=true;if(::web.isInitialized)web.onResume();if(::pause.isInitialized)pause.text=if(WorkflowBrowserSession.paused)"Lanjut" else "Jeda" }
+    override fun onPause() { frameMonitor.stop();resumed=false;MappingBrowserContext.visible=false;WorkflowBrowserSession.visible=false;if(::web.isInitialized)web.onPause();super.onPause() }
     override fun onDestroy() {
+        frameMonitor.close()
         if(!isChangingConfigurations)WorkflowBrowserSession.command.value?.result?.completeExceptionally(IllegalStateException("Browser ditutup; periksa efek langkah di situs sebelum memulai ulang."))
         web.destroy();super.onDestroy()
     }

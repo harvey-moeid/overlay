@@ -1,6 +1,11 @@
 package com.byga.smartoverlay
 
 import android.view.WindowManager
+import com.byga.smartoverlay.ui.StudioSessions
+import kotlinx.coroutines.*
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
+import org.robolectric.Robolectric
 import com.byga.smartoverlay.overlay.*
 import com.byga.smartoverlay.ui.PagedItems
 import androidx.compose.material3.Text
@@ -18,6 +23,17 @@ import org.robolectric.annotation.Config
 class OverlayRegressionTest {
     @get:Rule val compose=createComposeRule()
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test fun globalStopCancelsManualInputThatAlreadyLeftTheDelayCallback() = runTest {
+        val controller=Robolectric.buildService(OverlayService::class.java).create()
+        try {
+            val service=controller.get();var mutated=false
+            val input=launch{delay(1000);mutated=true};runCurrent()
+            service.javaClass.getDeclaredField("manualInputJob").apply{isAccessible=true}.set(service,input)
+            StudioSessions.stopAll();input.join()
+            assertTrue(input.isCancelled);assertFalse(mutated)
+        } finally { controller.destroy() }
+    }
     @Test fun compactBubbleKeepsAnAccessibleTouchTarget() {
         assertEquals(28,OverlayAppearance.DEFAULT_DP)
         assertEquals(48,OverlayAppearance.touchDp(28))

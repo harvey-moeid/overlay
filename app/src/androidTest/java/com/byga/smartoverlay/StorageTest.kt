@@ -6,12 +6,30 @@ import androidx.room.Room
 import com.byga.smartoverlay.data.*
 import com.byga.smartoverlay.agent.*
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class StorageTest {
+    @Test fun historyHeadersPageWithoutReadingConversationPayloads() = runBlocking {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val db=Room.inMemoryDatabaseBuilder(context,BygaDatabase::class.java).build()
+        try {
+            val dao=db.records()
+            repeat(25){index->
+                dao.save(Record("chat",index.toString(),"large conversation ".repeat(10_000),index.toLong()))
+                if(index!=0)dao.save(Record("chat_title",index.toString(),"Title $index"))
+            }
+            val first=dao.chatHeaders(8,0).first()
+            assertEquals(8,first.size);assertEquals("24",first.first().id)
+            assertTrue(first.all{it.body.length<100})
+            val last=dao.chatHeaders(8,24).first()
+            assertEquals(1,last.size);assertEquals("0",last.single().id)
+            assertEquals("Percakapan tersimpan",last.single().body)
+        }finally{db.close()}
+    }
     @Test fun roomSurvivesCloseAndReopen() = runBlocking {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val name="test-${System.nanoTime()}.db"
@@ -19,7 +37,7 @@ class StorageTest {
         first.records().save(Record("checkpoint","run","step:2")); first.close()
         val reopened=Room.databaseBuilder(context,BygaDatabase::class.java,name).build()
         assertEquals("step:2",reopened.records().get("checkpoint","run")?.body)
-        reopened.close(); context.deleteDatabase(name)
+        reopened.close(); context.deleteDatabase(name);Unit
     }
     @Test fun encryptedSecretRoundTripAndDelete() = runBlocking {
         val context=InstrumentationRegistry.getInstrumentation().targetContext

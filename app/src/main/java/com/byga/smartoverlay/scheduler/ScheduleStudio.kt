@@ -1,5 +1,6 @@
 package com.byga.smartoverlay.scheduler
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.Manifest
 import android.app.*
 import android.content.Context
@@ -67,7 +68,7 @@ class ScheduleWorker(context:Context,params:WorkerParameters):CoroutineWorker(co
 }
 @Composable fun ScheduleStudio(onWorkflows:()->Unit){
     val context=LocalContext.current;val scope=rememberCoroutineScope();val dao=remember{BygaDatabase.get(context).records()}
-    val rows by remember{dao.observe("schedule_config")}.collectAsState(initial=emptyList());val states by remember{dao.observe("schedule")}.collectAsState(initial=emptyList());val workflows by remember{dao.observe("workflow")}.collectAsState(initial=emptyList())
+    val rows by remember{dao.observe("schedule_config")}.collectAsStateWithLifecycle(initialValue=emptyList());val states by remember{dao.observe("schedule")}.collectAsStateWithLifecycle(initialValue=emptyList());val workflows by remember{dao.observe("workflow")}.collectAsStateWithLifecycle(initialValue=emptyList())
     val configs=rows.mapNotNull{runCatching{ScheduleConfig.decode(it)}.getOrNull()}.sortedByDescending{it.priority}
     var name by remember{mutableStateOf("")};var workflow by remember{mutableStateOf("")};var recurring by remember{mutableStateOf(false)};var interval by remember{mutableStateOf("15")};var priority by remember{mutableIntStateOf(1)};var dependency by remember{mutableStateOf("")};var note by remember{mutableStateOf("")}
     var date by remember{mutableStateOf(ZonedDateTime.now(ZoneId.of("Asia/Jakarta")).plusMinutes(15))}
