@@ -27,6 +27,13 @@ import java.util.UUID
     val results by remember{dao.observe("mapping_test")}.collectAsStateWithLifecycle(initialValue=emptyList())
     var note by remember{mutableStateOf("")};var test by remember{mutableStateOf<ButtonMapping?>(null)}
     var edit by remember{mutableStateOf<ButtonMapping?>(null)};var editName by remember{mutableStateOf("")};var ask by remember{mutableStateOf(false)}
+    var chooseApp by remember{mutableStateOf(false)}
+    var pendingApp by remember{mutableStateOf<String?>(null)}
+    var grants by remember{mutableStateOf(MappingPolicy.userPackages)}
+    val recording by GuidedRecorder.recording.collectAsStateWithLifecycle()
+    var inspection by remember{mutableStateOf<Map<String,String>>(emptyMap())}
+    if(chooseApp)InstalledAppPicker("",{pendingApp=it;chooseApp=false},{chooseApp=false})
+    pendingApp?.let{pkg->AlertDialog(onDismissRequest={pendingApp=null},title={Text("Izinkan metadata UI aplikasi?")},text={Text("$pkg\nBYGA membaca identitas kontrol hanya saat Anda memetakan atau menjalankan langkah yang direview. Isi field input tidak disimpan. Browser dan layar sensitif memerlukan adapter khusus. Izin ini tidak mengizinkan screenshot atau pengiriman ke AI.")},confirmButton={TextButton(onClick={scope.launch{runCatching{MappingAccess.grant(context,pkg)}.onSuccess{grants=MappingPolicy.userPackages;note="Aplikasi diizinkan"}.onFailure{note=it.message.orEmpty()}};pendingApp=null}){Text("Izinkan aplikasi")}},dismissButton={TextButton(onClick={pendingApp=null}){Text("Batal")}})}
     var busy by remember{mutableStateOf(false)};var demoCount by remember{mutableIntStateOf(0)}
     PremiumCard {
         Eyebrow("Teach once, use in your flow")
@@ -45,6 +52,12 @@ import java.util.UUID
             TextButton(onClick={context.startActivity(Intent(context,WorkflowBrowserActivity::class.java).putExtra("mapping_site","flow").addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))}){Text("Flow Web BYGA")}
         }
     }
+    PremiumCard {
+        Text("Aplikasi native yang diizinkan",style=MaterialTheme.typography.titleMedium)
+        OutlinedButton(onClick={chooseApp=true}){Text("Pilih & izinkan aplikasi")}
+        grants.forEach{pkg->Row{Text(pkg,modifier=Modifier.weight(1f));TextButton(onClick={scope.launch{MappingAccess.revoke(context,pkg);grants=MappingPolicy.userPackages}}){Text("Cabut")}}}
+        Text("ChatGPT, Chrome dengan origin terverifikasi, dan area latihan BYGA tersedia melalui adapter bawaan.",color=Muted)
+    }
     if(note.isNotBlank())Text(note,color=Cyan)
     SectionTitle("Mapping tersimpan (${rows.size})", "Perubahan mapping membatalkan kecocokan versi yang dipakai workflow lama. Pilih ulang mapping di editor setelah mengubahnya.")
     if(rows.isEmpty())EmptyState("Belum ada tombol tersimpan","Buka aplikasi tujuan dan mulai dari bubble. Mapping disimpan lokal, tanpa mengunggah isi layar ke AI.")
@@ -54,16 +67,29 @@ import java.util.UUID
         else PremiumCard {
             Row { Text(mapping.name,style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f));Switch(mapping.enabled,{enabled->scope.launch{dao.save(Record("button_mapping",mapping.id,mapping.copy(enabled=enabled).encode()))}},enabled=!busy) }
             StatusPill(if(mapping.kind==MappingKind.SEMANTIC)"Identitas tombol" else "Posisi manual • selalu tanya",mapping.kind==MappingKind.SEMANTIC)
+            Text("${mapping.elementKind} • ${inspection[mapping.id] ?: "NEEDS_REVIEW • belum diobservasi"}",color=Cyan)
             Text("${mapping.scope.packageName}\n${mapping.scope.site.ifBlank{mapping.scope.screen}}\nLayar: ${mapping.scope.screen}",color=Muted)
             Text(if(mapping.askEveryTime)"Meminta konfirmasi setiap kali workflow menekan tombol." else "Setelah workflow direview, tombol dapat diklik otomatis jika cocok tepat.",style=MaterialTheme.typography.bodySmall,color=Muted)
             Text(results.firstOrNull{it.id==mapping.id}?.body ?: "Belum diuji. Simpan mapping tidak membuktikan hasil tombol.",style=MaterialTheme.typography.bodySmall,color=Muted)
             Row {
-                TextButton(enabled=!busy && mapping.enabled,onClick={test=mapping}){Text("Uji tombol")}
+                TextButton(enabled=!busy && mapping.enabled && mapping.elementKind !in setOf(ElementKind.INPUT,ElementKind.SCROLL),onClick={test=mapping}){Text("Uji tombol")}
                 TextButton(enabled=!busy,onClick={edit=mapping;editName=mapping.name;ask=mapping.askEveryTime}){Text("Atur")}
                 TextButton(enabled=!busy,onClick={scope.launch{dao.delete("button_mapping",mapping.id);dao.delete("mapping_test",mapping.id)}}){Text("Hapus")}
             }
+            TextButton(enabled=!busy && mapping.enabled,onClick={scope.launch {
+                busy=true
+                try {
+                    openMappingTarget(context,mapping);delay(700)
+                    val snapshot=checkNotNull(SafeAccessibilityService.current){"Accessibility belum aktif"}.mapping.snapshot()
+                    val result=MappingPolicy.inspect(mapping,snapshot,SystemClock.elapsedRealtime())
+                    val label="${result.status} • ${result.reason}"
+                    inspection=inspection+(mapping.id to label);dao.save(Record("mapping_status",mapping.id,label))
+                }catch(e:CancellationException){throw e}catch(e:Exception){inspection=inspection+(mapping.id to "BLOCKED • ${e.message}")}finally{busy=false}
+            }}){Text("Periksa target tanpa aksi")}
+            if(recording!=null)TextButton(onClick={scope.launch{runCatching{GuidedRecorder.append(context,mapping)}.onSuccess{note="Pilihan ditambahkan ke draft rekaman; belum dijalankan"}.onFailure{note=it.message.orEmpty()}}}){Text("+ Pilih untuk rekaman")}
             OutlinedButton(enabled=mapping.enabled && !busy,onClick={scope.launch {
-                val plan=Plan("Klik ${mapping.name}".take(120),listOf(Step(Action.CLICK_MAPPING,mapping.id,mapping.scope.packageName,mapping.fingerprint())))
+                val action=if(mapping.kind==MappingKind.POINT)Action.CLICK_MAPPING else when(mapping.elementKind){ElementKind.INPUT->Action.WAIT_FOR_STATE;ElementKind.SCROLL->Action.SCROLL_MAPPING;else->Action.CLICK_MAPPING}
+                val plan=Plan("Aksi ${mapping.name}".take(120),listOf(Step(action,mapping.id,mapping.scope.packageName,mapping.fingerprint(),when(action){Action.WAIT_FOR_STATE->"FOUND";Action.SCROLL_MAPPING->"FORWARD";else->""})))
                 dao.save(Record("workflow",UUID.randomUUID().toString(),WorkflowCodec.encode(plan)))
                 note="Workflow dibuat sebagai draft. Buka Alur → Library, tinjau mapping dan aktifkan aplikasi/layar tujuan sebelum menjalankannya."
             }}){Text("Buat workflow dari tombol ini")}

@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy(){frameMonitor.close();super.onDestroy()}
     private var requestedDestination by mutableStateOf<String?>(null)
     private fun destination(intent:Intent?)=when { intent?.getBooleanExtra("open_mapping",false)==true -> "Smart Mapping";intent?.getBooleanExtra("open_workflow",false)==true -> "Workflows";intent?.getBooleanExtra("open_capture",false)==true -> "Capture";intent?.getBooleanExtra("open_schedule",false)==true -> "Scheduler";else -> null }
-    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); requestedDestination=destination(intent);setContent { BygaApp() } }
+    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState);com.byga.smartoverlay.mapping.MappingAccess.load(this);requestedDestination=destination(intent);setContent { BygaApp() } }
     override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);requestedDestination=destination(intent)}
 
     @OptIn(ExperimentalMaterial3Api::class)

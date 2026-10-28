@@ -33,6 +33,7 @@ import java.util.UUID
 
 @Composable
 fun AgentScreen() {
+    AutomationAssistPanel()
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     val db=remember { BygaDatabase.get(context) }

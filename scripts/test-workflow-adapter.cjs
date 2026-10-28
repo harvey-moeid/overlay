@@ -11,9 +11,9 @@ const adapter=fs.readFileSync('app/src/main/assets/workflow-adapter.js','utf8');
     const page=await context.newPage();
     await page.goto('https://chatgpt.com/');
     let serial=0;
-    async function invoke(action,value='',phase='begin') {
+    async function invoke(action,value='',phase='begin',commandId=action) {
       const key='fixture'+serial++;
-      await page.evaluate(adapter.replaceAll('BYGA_ACTION',JSON.stringify(action)).replaceAll('BYGA_PHASE',JSON.stringify(phase)).replaceAll('BYGA_RESULT',JSON.stringify(key)).replaceAll('BYGA_VALUE',JSON.stringify(value)));
+      await page.evaluate(adapter.replaceAll('BYGA_COMMAND',JSON.stringify(commandId)).replaceAll('BYGA_ACTION',JSON.stringify(action)).replaceAll('BYGA_PHASE',JSON.stringify(phase)).replaceAll('BYGA_RESULT',JSON.stringify(key)).replaceAll('BYGA_VALUE',JSON.stringify(value)));
       await page.waitForFunction(key=>window[key],key);
       return page.evaluate(key=>JSON.parse(window[key]),key);
     }
@@ -28,6 +28,7 @@ const adapter=fs.readFileSync('app/src/main/assets/workflow-adapter.js','utf8');
     const prompt='Line 1\n"quotes" `backticks` ${window.injected=true} BYGA_RESULT </script>';
     assert.equal((await invoke('CHATGPT_SEND_PROMPT',prompt)).status,'dispatched');
     assert.equal((await invoke('CHATGPT_SEND_PROMPT',prompt,'observe')).status,'done');
+    assert.equal((await invoke('CHATGPT_SEND_PROMPT',prompt,'begin')).status,'done');
     assert.equal(await page.evaluate(()=>window.sends),1);
     assert.equal(await page.evaluate(()=>window.injected),undefined);
     assert.equal((await invoke('CHATGPT_COLLECT_RESULT')).status,'wait');
@@ -52,6 +53,7 @@ const adapter=fs.readFileSync('app/src/main/assets/workflow-adapter.js','utf8');
     });
     assert.equal((await invoke('FLOW_CREATE_PROJECT')).status,'dispatched');
     assert.equal((await invoke('FLOW_CREATE_PROJECT','','observe')).status,'done');
+    assert.equal((await invoke('FLOW_CREATE_PROJECT','CURRENT','begin','select-current')).status,'done');
     assert.equal(await page.evaluate(()=>window.creates),1);
     assert.equal((await invoke('FLOW_SET_PROMPT',prompt)).status,'done');
     assert.equal(await page.locator('textarea').inputValue(),prompt);
@@ -59,9 +61,10 @@ const adapter=fs.readFileSync('app/src/main/assets/workflow-adapter.js','utf8');
     await page.evaluate(()=>document.body.insertAdjacentHTML('beforeend','<input type="file" accept="image/*" hidden>'));
     assert.equal((await invoke('FLOW_UPLOAD_IMAGE')).status,'dispatched');
     assert.equal((await invoke('FLOW_UPLOAD_IMAGE','','observe')).status,'wait');
+    assert.equal(await page.locator('input[type=file]').evaluate(e=>e.files.length),0);
     await page.evaluate(()=>{
       const input=document.querySelector('input[type="file"]');const data=new DataTransfer();data.items.add(new File(['fixture'],'image.png',{type:'image/png'}));input.files=data.files;input.dispatchEvent(new Event('change'));
-      const canvas=document.createElement('canvas');canvas.width=canvas.height=100;const image=new Image();image.src=canvas.toDataURL();document.body.append(image);
+      const canvas=document.createElement('canvas');canvas.width=canvas.height=100;const image=new Image();image.alt='Uploaded input image';image.src=canvas.toDataURL();document.body.append(image);
       document.body.insertAdjacentHTML('beforeend','<div role="progressbar">uploading</div>');
     });
     await page.waitForFunction(()=>document.querySelector('img').complete);
@@ -76,6 +79,7 @@ const adapter=fs.readFileSync('app/src/main/assets/workflow-adapter.js','utf8');
     await page.locator('#generate').evaluate(e=>e.disabled=false);
     assert.equal((await invoke('FLOW_GENERATE')).status,'dispatched');
     assert.equal((await invoke('FLOW_GENERATE','','observe')).status,'done');
+    assert.equal((await invoke('FLOW_GENERATE','','begin')).status,'done');
     assert.equal(await page.evaluate(()=>window.generates),1);
     assert.equal((await invoke('FLOW_DOWNLOAD_VIDEO')).status,'wait');
     await page.evaluate(()=>{
@@ -83,6 +87,17 @@ const adapter=fs.readFileSync('app/src/main/assets/workflow-adapter.js','utf8');
       Object.defineProperty(video,'readyState',{get:()=>2});Object.defineProperty(video,'error',{get:()=>null});document.body.append(video);
     });
     assert.equal((await invoke('FLOW_DOWNLOAD_VIDEO')).result,'https://labs.google/new.mp4');
+    await page.locator('[role=progressbar]').evaluateAll(es=>es.forEach(e=>e.remove()));
+    await page.locator('#generate').evaluate(e=>e.insertAdjacentHTML('afterend','<button>Generate</button>'));
+    assert.equal((await invoke('FLOW_GENERATE','','begin','ambiguous-generate')).status,'wait');
+    assert.equal(await page.evaluate(()=>window.generates),1);
+    await page.evaluate(()=>history.pushState({},'', '/fx/tools/flow/project/other'));
+    assert.equal((await invoke('FLOW_SET_PROMPT','changed')).status,'error');
+    await page.goto('https://evil.example/');
+    assert.equal((await invoke('FLOW_GENERATE')).status,'error');
+    await page.goto('https://chatgpt.com/');
+    await page.setContent('<textarea id="prompt-textarea"></textarea><button>Send</button><button>Send</button>');
+    assert.equal((await invoke('CHATGPT_SEND_PROMPT','ambiguous','begin','ambiguous-send')).status,'wait');
     console.log('PASS: ChatGPT/Flow offline DOM contracts, literal prompt, old-result isolation, upload readiness, and single dispatch.');
   } finally { await browser.close(); }
 })().catch(error=>{console.error(error);process.exitCode=1;});

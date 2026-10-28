@@ -3,9 +3,9 @@ package com.byga.smartoverlay.workflow
 import java.net.URI
 import java.security.MessageDigest
 
-enum class Action { LAUNCH_APP, CLICK_MAPPING, OPEN_CHATGPT, CHATGPT_SEND_PROMPT, CHATGPT_COPY_RESULT, CHATGPT_COLLECT_RESULT, CHATGPT_DOWNLOAD_IMAGE, OPEN_FLOW, FLOW_CREATE_PROJECT, FLOW_UPLOAD_IMAGE, FLOW_SET_PROMPT, FLOW_GENERATE, FLOW_DOWNLOAD_VIDEO, FIND_NODE, SET_TEXT, COPY_TEXT, CLICK_NODE, SWIPE, WAIT_FOR_STATE, GENERATE_AI_TEXT, ANALYZE_SCREEN_ON_DEMAND, DOWNLOAD_URL, TAP_NATIVE_DOWNLOAD, SHARE_MEDIA, VERIFY_ACCOUNT, REQUEST_USER_APPROVAL, BRANCH, DELAY, STOP }
+enum class Action { LAUNCH_APP, CLICK_MAPPING, INPUT_MAPPING, SCROLL_MAPPING, NAVIGATE_BACK, OPEN_CHATGPT, CHATGPT_SEND_PROMPT, CHATGPT_COPY_RESULT, CHATGPT_COLLECT_RESULT, CHATGPT_DOWNLOAD_IMAGE, OPEN_FLOW, FLOW_CREATE_PROJECT, FLOW_UPLOAD_IMAGE, FLOW_SET_PROMPT, FLOW_GENERATE, FLOW_DOWNLOAD_VIDEO, FIND_NODE, SET_TEXT, COPY_TEXT, CLICK_NODE, SWIPE, WAIT_FOR_STATE, GENERATE_AI_TEXT, ANALYZE_SCREEN_ON_DEMAND, DOWNLOAD_URL, TAP_NATIVE_DOWNLOAD, SHARE_MEDIA, VERIFY_ACCOUNT, REQUEST_USER_APPROVAL, BRANCH, DELAY, STOP }
 enum class RunState { DRAFT, READY, RUNNING, PAUSED, WAITING_FOR_USER, SUCCEEDED, STOPPED, BLOCKED, UNKNOWN }
-data class Step(val action: Action, val value: String = "", val packageName: String = "", val selector: String = "")
+data class Step(val action: Action, val value: String = "", val packageName: String = "", val selector: String = "", val argument:String="", val timeoutMs:Long=600000, val retries:Int=0)
 data class Plan(val name: String, val steps: List<Step>) {
     fun fingerprint(): String = MessageDigest.getInstance("SHA-256").digest(toString().toByteArray()).joinToString("") { "%02x".format(it) }
     fun validate(): List<String> = buildList {
@@ -13,11 +13,19 @@ data class Plan(val name: String, val steps: List<Step>) {
         if(steps.sumOf{it.value.length+it.packageName.length+it.selector.length}>96000) add("Total isi workflow terlalu besar")
         if (steps.isEmpty() || steps.size > 50) add("Workflow perlu 1–50 langkah")
         steps.forEachIndexed { i, s ->
+            if(s.timeoutMs !in 1000..600000 || s.retries !in 0..2) add("Langkah ${i+1}: timeout/retry tidak valid")
+            if(s.retries>0 && s.action!=Action.WAIT_FOR_STATE) add("Langkah ${i+1}: retry hanya untuk observasi wait")
+            if(s.argument.length>4000) add("Langkah ${i+1}: argumen terlalu panjang")
+            if(s.action==Action.INPUT_MAPPING && s.argument.isBlank())add("Langkah ${i+1}: teks input wajib")
+            if(s.action==Action.SCROLL_MAPPING && s.argument !in setOf("FORWARD","BACKWARD"))add("Langkah ${i+1}: pilih arah scroll")
+            if(s.action==Action.WAIT_FOR_STATE && s.argument !in setOf("FOUND","NOT_FOUND"))add("Langkah ${i+1}: kondisi wait wajib")
+            if(s.action==Action.BRANCH && (s.selector !in setOf("EQUALS","NOT_EMPTY") || (s.argument.toIntOrNull() ?: 0) !in 1..50 || i+1+(s.argument.toIntOrNull() ?: 0)>steps.size))add("Langkah ${i+1}: IF/ELSE hanya boleh melewati langkah ke depan dalam alur")
             if(s.value.length>32000) add("Langkah ${i+1}: isi melebihi 32000 karakter")
             if(s.action in setOf(Action.COPY_TEXT,Action.GENERATE_AI_TEXT) && s.value.isBlank()) add("Langkah ${i+1}: teks wajib")
             if(s.action in setOf(Action.CHATGPT_SEND_PROMPT,Action.FLOW_SET_PROMPT) && s.value.isBlank()) add("Langkah ${i+1}: prompt wajib diisi")
+            if(s.action==Action.FLOW_CREATE_PROJECT && s.value !in setOf("","NEW","CURRENT"))add("Langkah ${i+1}: mode proyek tidak valid")
             if(s.action==Action.FLOW_UPLOAD_IMAGE && !(s.value.startsWith("content://") || s.value=="{{output}}")) add("Langkah ${i+1}: pilih gambar dari perangkat")
-            if(s.action==Action.CLICK_MAPPING && (s.value.isBlank() || s.packageName !in com.byga.smartoverlay.mapping.MappingPolicy.packages || !s.selector.matches(Regex("[a-f0-9]{64}")))) add("Langkah ${i+1}: pilih mapping tersimpan beserta versinya")
+            if(s.action in MappingSteps.actions && (s.value.isBlank() || s.packageName !in com.byga.smartoverlay.mapping.MappingPolicy.packages || !s.selector.matches(Regex("[a-f0-9]{64}")))) add("Langkah ${i+1}: pilih mapping tersimpan beserta versinya")
             if(s.action==Action.LAUNCH_APP && !s.packageName.matches(Regex("[A-Za-z][A-Za-z0-9_]*([.][A-Za-z0-9_]+)+"))) add("Langkah ${i+1}: package tidak valid")
             if (s.action in setOf(Action.FIND_NODE, Action.SET_TEXT, Action.CLICK_NODE, Action.TAP_NATIVE_DOWNLOAD) && (s.selector.isBlank() || s.packageName.isBlank())) add("Langkah ${i+1}: package dan selector wajib")
             if (s.action == Action.DELAY && (s.value.toLongOrNull() ?: -1) !in 0..30000) add("Delay harus 0–30000 ms")
@@ -46,7 +54,7 @@ object Guard {
     fun canRun(plan: Plan, approvedHash: String?) = plan.validate().isEmpty() && approvedHash == plan.fingerprint()
     fun canPublish(target: String?, visibleAccount: String?, freshApproval: Boolean) = !target.isNullOrBlank() && target == visibleAccount && freshApproval
     fun schedulerReady(locked: Boolean, requiresUi: Boolean, userPresent: Boolean) = !requiresUi || (!locked && userPresent)
-    fun mayRetry(action: Action, attempted: Int, uncertainSideEffect: Boolean) = !uncertainSideEffect && attempted < 2 && action in setOf(Action.FIND_NODE, Action.WAIT_FOR_STATE, Action.GENERATE_AI_TEXT)
+    fun mayRetry(action: Action, attempted: Int, uncertainSideEffect: Boolean) = !uncertainSideEffect && attempted < 2 && action in setOf(Action.FIND_NODE, Action.WAIT_FOR_STATE)
 }
 class ExecutionLedger {
     private val completed = mutableSetOf<String>()

@@ -7,16 +7,23 @@ plugins {
 android {
     namespace = "com.byga.smartoverlay"
     compileSdk = 36
-    defaultConfig { applicationId = "com.byga.smartoverlay"; minSdk = 28; targetSdk = 36; versionCode = 8; versionName = "0.6.2-smooth"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+    defaultConfig { applicationId = "com.byga.smartoverlay"; minSdk = 28; targetSdk = 36; versionCode = 9; versionName = "0.7.0-automation-v2"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
     buildFeatures { compose = true; buildConfig = true }
     testBuildType = providers.gradleProperty("qaBuildType").orElse("debug").get()
+    val signingStore=providers.environmentVariable("BYGA_SIGNING_STORE").orNull
+    if(signingStore!=null)signingConfigs.create("bygaUpdate") {
+        storeFile=file(signingStore)
+        storePassword=providers.environmentVariable("BYGA_SIGNING_STORE_PASSWORD").get()
+        keyAlias=providers.environmentVariable("BYGA_SIGNING_KEY_ALIAS").get()
+        keyPassword=providers.environmentVariable("BYGA_SIGNING_KEY_PASSWORD").get()
+    }
     buildTypes {
         create("optimized") {
             initWith(getByName("release"))
             isDebuggable=false
             isMinifyEnabled=true
             isShrinkResources=true
-            signingConfig=signingConfigs.getByName("debug")
+            signingConfig=signingConfigs.getByName(if(signingStore!=null)"bygaUpdate" else "debug")
             matchingFallbacks += "release"
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"),"proguard-rules.pro")
             testProguardFiles("proguard-test-rules.pro")

@@ -24,10 +24,10 @@ class SafeAccessibilityService : AccessibilityService() {
         budget.check()
         block()
     }
-    override fun onServiceConnected() { current = this }
+    override fun onServiceConnected() { com.byga.smartoverlay.mapping.MappingAccess.load(this);current = this }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) { if(event?.eventType==AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)mapping.screenChanged(event.packageName?.toString().orEmpty(),event.className?.toString().orEmpty()) }
-    override fun onInterrupt() { current = null }
-    override fun onDestroy() { current = null; super.onDestroy() }
+    override fun onInterrupt() { current = null;com.byga.smartoverlay.mapping.MappingRuntime.cancel();com.byga.smartoverlay.ui.StudioSessions.stopAll() }
+    override fun onDestroy() { if(current===this){current=null;com.byga.smartoverlay.mapping.MappingRuntime.cancel();com.byga.smartoverlay.ui.StudioSessions.stopAll()};super.onDestroy() }
     private fun safeRoot(pkg: String): AccessibilityNodeInfo? {
         // Phase 0 deliberately only permits the app's safe test screen.
         if (pkg != packageName || getSystemService(KeyguardManager::class.java).isKeyguardLocked) return null

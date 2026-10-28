@@ -53,7 +53,7 @@ object DirectDownload {
         if(!secureUrl(url)) return@withContext DownloadResult.Blocked("HTTPS_REQUIRED")
         var uri: Uri?=null
         try {
-            client.newCall(Request.Builder().url(url).build()).execute().use { response ->
+            client.newCall(Request.Builder().url(url).build()).withCancellation { response ->
                 check(response.isSuccessful) { "HTTP_BLOCKED" }
                 val body=checkNotNull(response.body)
                 val mime=body.contentType()?.let { "${it.type}/${it.subtype}" } ?: ""

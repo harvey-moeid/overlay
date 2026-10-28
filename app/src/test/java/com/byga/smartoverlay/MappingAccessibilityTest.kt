@@ -69,4 +69,39 @@ class MappingAccessibilityTest {
         val root=node(MappingPolicy.BYGA);attach(root,node(MappingPolicy.BYGA,"Stop","toolbar:stop",true));val practice=node(MappingPolicy.BYGA).apply{contentDescription="byga_mapping_test_screen"};attach(root,practice);attach(practice,node(MappingPolicy.BYGA,"Latihan","practice",true));service.screen=root
         val s=adapter.snapshot();assertEquals("mapping-test",s.scope.screen);assertEquals(listOf("Latihan"),s.candidates.map{it.identity.label})
     }
+    @Test fun editableValuesAreNeverPartOfDiscoveryIdentity()=runTest {
+        val root=node();val field=node(id="app:id/prompt").apply{isEditable=true;className="android.widget.EditText";text="PRIVATE DRAFT 987654";hintText="Prompt";addAction(AccessibilityNodeInfo.ACTION_SET_TEXT)}
+        attach(root,field);service.screen=root
+        val item=adapter.snapshot().candidates.single()
+        assertEquals(ElementKind.INPUT,item.kind);assertFalse(item.identity.toString().contains("PRIVATE"));assertTrue(item.identity.label.isBlank());assertEquals(0,clicks)
+    }
+    @Test fun mappedInputVerifiesMatchingObservedValueWithoutSend()=runTest {
+        val root=node();val field=node(id="app:id/prompt").apply{isEditable=true;className="android.widget.EditText";text="hello";addAction(AccessibilityNodeInfo.ACTION_SET_TEXT)}
+        shadowOf(field).setOnPerformActionListener{action,args->assertEquals(AccessibilityNodeInfo.ACTION_SET_TEXT,action);field.text=args?.getCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE);clicks++;true}
+        attach(root,field);service.screen=root
+        val s=adapter.snapshot();val m=ButtonMapping(name="Prompt",scope=s.scope,identity=s.candidates.single().identity,elementKind=ElementKind.INPUT)
+        assertEquals("INPUT_VERIFIED",adapter.perform(m,MappingClickPermit(m.fingerprint(),SystemClock.elapsedRealtime(),"INPUT",mappingHash("hello")),"INPUT","hello"));assertEquals(1,clicks)
+    }
+    @Test fun acceptedSetTextWithoutValueChangeIsUncertain()=runTest {
+        val root=node();val field=node(id="app:id/prompt").apply{isEditable=true;className="android.widget.EditText";addAction(AccessibilityNodeInfo.ACTION_SET_TEXT)}
+        attach(root,field);service.screen=root
+        val s=adapter.snapshot();val m=ButtonMapping(name="Prompt",scope=s.scope,identity=s.candidates.single().identity,elementKind=ElementKind.INPUT)
+        try{adapter.perform(m,MappingClickPermit(m.fingerprint(),SystemClock.elapsedRealtime(),"INPUT",mappingHash("hello")),"INPUT","hello");fail()}catch(_:IllegalStateException){}
+        assertEquals(1,clicks)
+    }
+    @Test fun checkboxTabAndScrollableContainersAreDiscovered()=runTest {
+        val root=node();attach(root,node(label="Aktif",id="switch",clickable=true).apply{isCheckable=true})
+        attach(root,node(id="list").apply{isScrollable=true;addAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)})
+        attach(root,node(label="Home",id="tab",clickable=true).apply{className="android.widget.TabWidget"})
+        service.screen=root;assertEquals(setOf(ElementKind.TOGGLE,ElementKind.SCROLL,ElementKind.TAB),adapter.snapshot().candidates.map{it.kind}.toSet());assertEquals(0,clicks)
+    }
+    @Test fun foreignPackageChildCannotBecomeCandidate()=runTest {
+        val root=node();attach(root,node(pkg="com.other.app",label="Generate",clickable=true));service.screen=root
+        assertTrue(adapter.snapshot().candidates.isEmpty())
+    }
+    @Test fun otpFieldIdentifiedOnlyByResourceIdBlocksWholeSnapshot()=runTest {
+        val(root,_)=scene();attach(root,node(id="app:id/otp_code").apply{isEditable=true})
+        try{adapter.snapshot();fail()}catch(_:IllegalStateException){};assertEquals(0,clicks)
+    }
+
 }

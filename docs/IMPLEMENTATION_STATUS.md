@@ -1,3 +1,13 @@
+# Automation V2 — 0.7.0 (28 Oktober 2026)
+
+Implementasi terhubung: typed discovery + resolver status + native app grant, input/scroll/back/wait mapping, guided recorder Room, IF/ELSE dan retry observasi, dry-run database binding, evidence/approval/cancellation runner, history per run, guard duplicate dispatch browser, manual account/project approval, proyek NEW/CURRENT, serta AI assistance opt-in tanpa eksekusi model. Tidak ada schema Room baru atau data lama yang dihapus.
+
+Parsial: verifikasi hasil native click/scroll/back masih meminta pemeriksaan manusia; identitas berubah memerlukan pemetaan ulang; dukungan UI situs asli, app tambahan dan performa Samsung belum diukur. Recorder tidak merekam semua touch; AI bukan autonomous agent pihak ketiga. Browser resmi merupakan handoff manual. Release update lintas CI memerlukan key pemilik yang sama.
+
+Lihat [audit dan referensi lisensi](AUTOMATION_V2_AUDIT.md), [panduan V2](WORKFLOW_STUDIO_V2.md), [tes aktual terbaru](TEST_MATRIX.md), dan [penerimaan perangkat](REAL_DEVICE_ACCEPTANCE.md). Status historis di bawah tetap untuk baseline, bukan klaim fitur V2 belum ada.
+
+---
+
 > Pembaruan 0.6.0: maskot BG/byga, Smart Mapping deteksi/tunjuk, library dan CLICK_MAPPING tersedia. Klik terikat scope dan versi; posisi manual selalu dikonfirmasi. [Panduan dan bukti](SMART_MAPPING.md). Pengujian target asli belum dijalankan.
 
 > Pembaruan 0.5.0: pemilih aplikasi terinstal dan adapter workflow ChatGPT/Flow tersedia, termasuk unggah dan unduh media. Build/fixture tidak membuktikan login atau kompatibilitas situs asli. Lihat [panduan workflow web](WORKFLOW_WEB.md). Status historis Studio di bawah tetap menjadi baseline untuk modul lain.

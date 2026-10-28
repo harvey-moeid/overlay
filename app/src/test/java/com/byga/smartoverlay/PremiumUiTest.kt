@@ -60,4 +60,14 @@ class PremiumUiTest {
         compose.onNodeWithText("Tombol latihan").performScrollTo().performClick()
         compose.onNodeWithText("Ditekan 1 kali").assertExists()
     }
+    @Test fun workflowV2RecorderAndConditionEditorsAreReachable(){
+        compose.onNodeWithText("Alur").performClick()
+        compose.onNodeWithText("Start Recording").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("+ IF / ELSE berdasarkan output").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("ELSE: lewati 1–50 langkah berikutnya").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Dry run").performScrollTo().performClick()
+        compose.onNodeWithText("Duplikasi workflow").assertExists()
+    }
+
 }

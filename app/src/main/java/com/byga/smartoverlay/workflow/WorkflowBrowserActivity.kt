@@ -30,6 +30,11 @@ class WorkflowBrowserActivity:ComponentActivity() {
     private val frameMonitor by lazy { com.byga.smartoverlay.performance.WindowFrameMonitor(window) }
     private lateinit var address:TextView
     private lateinit var pause:Button
+    private lateinit var approvalBox:LinearLayout
+    private lateinit var account:EditText
+    private var approval:CompletableDeferred<Boolean>?=null
+    private var reviewedUrl:String?=null
+    private val instanceId=UUID.randomUUID().toString()
     private var resumed=false
     private var upload:Uri?=null
     private var chooserUsed=false
@@ -54,6 +59,21 @@ class WorkflowBrowserActivity:ComponentActivity() {
             else message.text="Aktifkan izin bubble dari Pengaturan BYGA dahulu."
         }
         layout.addView(controls)
+        val official=Button(this).apply{text="Buka browser resmi • handoff manual";isAllCaps=false;setOnClickListener {
+            val url=web.url?.takeIf(WebWorkflowPolicy::navigable) ?: "https://chatgpt.com/"
+            com.byga.smartoverlay.ui.StudioSessions.stopAll()
+            runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE))}
+                .onFailure{message.text="Browser resmi tidak tersedia"}
+        }}
+        layout.addView(official)
+        approvalBox=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;visibility=android.view.View.GONE}
+        account=EditText(this).apply{hint="Alias akun yang Anda periksa pada situs";setTextColor(Color.WHITE);setHintTextColor(Color.LTGRAY);maxLines=1;inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;importantForAutofill=android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS}
+        approvalBox.addView(account)
+        approvalBox.addView(Button(this).apply{text="Akun/proyek benar • setujui satu aksi";isAllCaps=false;setOnClickListener{
+            if(account.text.toString().trim().length in 1..100 && resumed && !getSystemService(KeyguardManager::class.java).isKeyguardLocked){reviewedUrl=web.url;approval?.complete(true)}
+            else message.text="Periksa akun di situs lalu isi alias publiknya; jangan isi password/OTP."
+        }})
+        layout.addView(approvalBox)
         web=WebView(this)
         web.settings.apply {
             javaScriptEnabled=true;domStorageEnabled=true;allowFileAccess=false;allowContentAccess=false
@@ -106,7 +126,7 @@ class WorkflowBrowserActivity:ComponentActivity() {
         if(url!=null && !WorkflowBrowserSession.isActive()){web.loadUrl(url);message.text="Buka layar tujuan, lalu pilih Mapping. Login dilakukan manual."}
     }
     override fun onResume() { super.onResume();frameMonitor.start();resumed=true;MappingBrowserContext.visible=true;MappingBrowserContext.url=web.url.orEmpty();WorkflowBrowserSession.visible=true;if(::web.isInitialized)web.onResume();if(::pause.isInitialized)pause.text=if(WorkflowBrowserSession.paused)"Lanjut" else "Jeda" }
-    override fun onPause() { frameMonitor.stop();resumed=false;MappingBrowserContext.visible=false;WorkflowBrowserSession.visible=false;if(::web.isInitialized)web.onPause();super.onPause() }
+    override fun onPause() { approval?.complete(false);frameMonitor.stop();resumed=false;MappingBrowserContext.visible=false;WorkflowBrowserSession.visible=false;if(::web.isInitialized)web.onPause();super.onPause() }
     override fun onDestroy() {
         frameMonitor.close()
         if(!isChangingConfigurations)WorkflowBrowserSession.command.value?.result?.completeExceptionally(IllegalStateException("Browser ditutup; periksa efek langkah di situs sebelum memulai ulang."))
@@ -148,6 +168,7 @@ class WorkflowBrowserActivity:ComponentActivity() {
         awaitVisible(command)
         val key="bygaResult"+UUID.randomUUID().toString().replace("-","")
         val script=adapter.replace("BYGA_ACTION",JSONObject.quote(command.action.name))
+            .replace("BYGA_COMMAND",JSONObject.quote(command.id))
             .replace("BYGA_PHASE",JSONObject.quote(phase)).replace("BYGA_RESULT",JSONObject.quote(key))
             .replace("BYGA_VALUE",JSONObject.quote(command.value))
         js(script)
@@ -164,6 +185,7 @@ class WorkflowBrowserActivity:ComponentActivity() {
         } finally { if(canAct(command))js("delete window[${JSONObject.quote(key)}]") }
     }
     private suspend fun execute(command:WebCommand):String {
+        check(command.dispatch.attach(instanceId)){"Browser dibuat ulang; bukti sesi hilang. Periksa hasil situs. Tidak ada pengulangan aksi otomatis."}
         message.text=command.action.displayName()
         if(command.action in setOf(Action.OPEN_CHATGPT,Action.OPEN_FLOW)) {
             awaitVisible(command,false)
@@ -188,12 +210,28 @@ class WorkflowBrowserActivity:ComponentActivity() {
             upload=uri;chooserUsed=false
         }
         var phase="begin"
+        var approvedUrl:String?=null
+        val sensitive=command.action in setOf(Action.CHATGPT_SEND_PROMPT,Action.FLOW_CREATE_PROJECT,Action.FLOW_UPLOAD_IMAGE,Action.FLOW_GENERATE)
+        if(sensitive) {
+            awaitVisible(command)
+            reviewedUrl=null
+            progress("Tinjau akun, proyek, prompt/media dan kredit di halaman. Setujui hanya setelah Anda memeriksanya.\n${command.value.take(4000)}",RunState.WAITING_FOR_USER)
+            approval=CompletableDeferred();approvalBox.visibility=android.view.View.VISIBLE;account.setText("")
+            WorkflowBrowserSession.onApprovalStatus?.invoke(true,"Tinjau akun/proyek dan setujui satu aksi di browser BYGA")
+            try {
+                check(withTimeoutOrNull(180000){approval!!.await()}==true){"Persetujuan akun/aksi dibatalkan atau kedaluwarsa"}
+                awaitVisible(command)
+                check(reviewedUrl!=null && web.url==reviewedUrl){"Halaman/proyek berubah selama review; tinjau ulang melalui workflow baru"}
+                approvedUrl=reviewedUrl
+            } finally {approval=null;reviewedUrl=null;approvalBox.visibility=android.view.View.GONE;account.setText("");WorkflowBrowserSession.onApprovalStatus?.invoke(false,command.action.displayName())}
+        }
         while(true) {
+            if(sensitive && (phase!="observe" || command.action!=Action.FLOW_CREATE_PROJECT))check(web.url==approvedUrl){"Origin/proyek berubah setelah approval; aksi diblokir"}
             val result=invoke(command,phase)
             when(result.optString("status")) {
                 "wait" -> { progress("${command.action.displayName()}\n${result.optString("note")}");delay(900) }
                 "preparing" -> { phase="prepare";message.text="Membuka kontrol unggah gambar…";delay(700) }
-                "dispatched" -> { phase="observe";progress("Aksi dikirim satu kali. Menunggu verifikasi…");delay(700) }
+                "dispatched" -> { check(command.dispatch.claim()){"Duplicate dispatch dicegah; periksa hasil situs"};phase="observe";progress("Aksi dikirim satu kali. Menunggu verifikasi…");delay(700) }
                 "error" -> error(result.optString("note","Adapter situs tidak cocok"))
                 "done" -> {
                     val output=result.optString("result")

@@ -18,7 +18,7 @@ object WebWorkflowPolicy {
     fun permits(action:Action,url:String):Boolean=runCatching {
         val u=URI(url).normalize()
         action in actions && u.scheme=="https" && u.userInfo==null && (u.port==-1 || u.port==443) &&
-            if(isChat(action)) u.host=="chatgpt.com"
+            if(isChat(action)) u.host=="chatgpt.com" && com.byga.smartoverlay.mapping.MappingPolicy.site(url)!=null
             else u.host=="labs.google" && (u.path=="/fx/tools/flow" || u.path.startsWith("/fx/tools/flow/"))
     }.getOrDefault(false)
     fun navigable(url:String):Boolean=runCatching {
@@ -31,6 +31,7 @@ object WebWorkflowPolicy {
 class WebCommand(val action:Action,val value:String) {
     val id=UUID.randomUUID().toString()
     val result=CompletableDeferred<String>()
+    val dispatch=DispatchGuard()
 }
 
 /** RAM-only session, cancelled with the runner. No grant survives process death. */
@@ -41,6 +42,7 @@ object WorkflowBrowserSession {
         internal set
     @Volatile var paused=false
     var onStatus: ((RunState,String)->Unit)? = null
+    var onApprovalStatus:((Boolean,String)->Unit)?=null
     fun report(state:RunState,note:String) { onStatus?.invoke(state,note) }
     var onPauseChanged:((Boolean)->Unit)?=null
     fun changePause(value:Boolean) { paused=value;onPauseChanged?.invoke(value) }
@@ -51,7 +53,7 @@ object WorkflowBrowserSession {
         check(!resuming) { "Sesi web tidak dapat di-resume dari checkpoint. Periksa hasil di situs lalu mulai workflow baru." }
         activeRun=true; paused=false; chatResponse=""
     }
-    fun end() { activeRun=false;onStatus=null;onPauseChanged=null; _command.value?.result?.cancel(); _command.value=null }
+    fun end() { activeRun=false;onStatus=null;onApprovalStatus=null;onPauseChanged=null; _command.value?.result?.cancel(); _command.value=null }
     fun isActive()=activeRun
     suspend fun execute(context:Context,action:Action,value:String):String {
         check(activeRun && action in WebWorkflowPolicy.actions)
@@ -67,6 +69,11 @@ object WorkflowBrowserSession {
 
 fun Action.displayName():String=when(this) {
     Action.CLICK_MAPPING -> "Klik tombol Smart Mapping"
+    Action.NAVIGATE_BACK -> "Kembali dari layar Smart Mapping"
+    Action.INPUT_MAPPING -> "Isi field Smart Mapping"
+    Action.SCROLL_MAPPING -> "Scroll container Smart Mapping"
+    Action.WAIT_FOR_STATE -> "Tunggu kondisi target"
+    Action.BRANCH -> "IF / ELSE berdasarkan output"
     Action.LAUNCH_APP -> "Buka aplikasi terinstal"
     Action.OPEN_CHATGPT -> "Buka ChatGPT Web"
     Action.CHATGPT_SEND_PROMPT -> "Tempel & kirim prompt ChatGPT"
