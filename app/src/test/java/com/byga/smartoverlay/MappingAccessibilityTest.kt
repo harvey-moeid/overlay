@@ -19,9 +19,10 @@ import org.robolectric.annotation.Config
 
 class MappingFakeService:AccessibilityService() {
     var screen:AccessibilityNodeInfo?=null
+    var visibleWindows=mutableListOf<AccessibilityWindowInfo>()
     var readThread:Thread?=null
     override fun getRootInActiveWindow():AccessibilityNodeInfo? { readThread=Thread.currentThread();return screen }
-    override fun getWindows():MutableList<AccessibilityWindowInfo> = mutableListOf()
+    override fun getWindows():MutableList<AccessibilityWindowInfo> = visibleWindows
     override fun onAccessibilityEvent(event:AccessibilityEvent?)=Unit
     override fun onInterrupt()=Unit
 }
@@ -102,6 +103,23 @@ class MappingAccessibilityTest {
     @Test fun otpFieldIdentifiedOnlyByResourceIdBlocksWholeSnapshot()=runTest {
         val(root,_)=scene();attach(root,node(id="app:id/otp_code").apply{isEditable=true})
         try{adapter.snapshot();fail()}catch(_:IllegalStateException){};assertEquals(0,clicks)
+    }
+    @Test fun activeSystemDialogBlocksUnderlyingApplicationEvenForBack()=runTest {
+        scene();val mapping=saved()
+        val permission=AccessibilityWindowInfo.obtain()
+        shadowOf(permission).setType(AccessibilityWindowInfo.TYPE_SYSTEM)
+        shadowOf(permission).setActive(true)
+        shadowOf(permission).setRoot(node(pkg="com.android.permissioncontroller"))
+        service.visibleWindows.add(permission)
+        try{adapter.perform(mapping,MappingClickPermit(mapping.fingerprint(),SystemClock.elapsedRealtime(),"BACK"),"BACK");fail()}catch(_:IllegalStateException){}
+        assertEquals(0,clicks)
+    }
+    @Test fun inactiveSystemDecorDoesNotBlockAnApplicationSnapshot()=runTest {
+        scene();val status=AccessibilityWindowInfo.obtain()
+        shadowOf(status).setType(AccessibilityWindowInfo.TYPE_SYSTEM)
+        shadowOf(status).setRoot(node(pkg="com.android.systemui"))
+        service.visibleWindows.add(status)
+        assertEquals(1,adapter.snapshot().candidates.size);assertEquals(0,clicks)
     }
 
 }

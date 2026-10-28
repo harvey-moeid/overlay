@@ -59,6 +59,7 @@ class MappingAccessibility(private val service:AccessibilityService) {
     }
     private fun observe(budget:ScanBudget):Observed {
         checkConnected()
+        requireNoSystemDialog()
         val started=SystemClock.elapsedRealtime()
         check(!service.getSystemService(KeyguardManager::class.java).isKeyguardLocked){"Buka kunci HP dahulu"}
         val root=service.windows.filter{it.type==AccessibilityWindowInfo.TYPE_APPLICATION}.maxByOrNull{it.layer}?.root
@@ -113,6 +114,11 @@ class MappingAccessibility(private val service:AccessibilityService) {
     private fun checkConnected() {
         if(service is com.byga.smartoverlay.accessibility.SafeAccessibilityService)check(com.byga.smartoverlay.accessibility.SafeAccessibilityService.current===service){"Accessibility terputus/dicabut; aksi dibatalkan"}
     }
+    private fun requireNoSystemDialog() {
+        check(service.windows.none{it.type==AccessibilityWindowInfo.TYPE_SYSTEM && (it.isActive || it.isFocused) && it.root?.packageName?.toString()!=MappingPolicy.BYGA}){
+            "Selesaikan dialog atau panel sistem secara manual. BYGA tidak menekan atau menutup izin/proteksi sistem."
+        }
+    }
     suspend fun click(mapping:ButtonMapping,permit:MappingClickPermit):String = perform(mapping,permit)
     suspend fun perform(mapping:ButtonMapping,permit:MappingClickPermit,operation:String="CLICK",value:String=""):String = AccessibilityWork.run {
         val budget=ScanBudget(currentCoroutineContext())
@@ -120,6 +126,7 @@ class MappingAccessibility(private val service:AccessibilityService) {
         check(permit.claim(mapping,now,operation,value)){"Persetujuan aksi kedaluwarsa, berubah, atau sudah digunakan"}
         val front=service.windows.filter{it.type==AccessibilityWindowInfo.TYPE_APPLICATION}.maxByOrNull{it.layer}?.root ?: service.rootInActiveWindow
         checkConnected()
+        requireNoSystemDialog()
         check(front?.packageName?.toString()==mapping.scope.packageName && front.windowId==observed.windowId){"Jendela aplikasi berubah sebelum klik"}
         observed.addressBar?.let{bar->check(bar.refresh() && !bar.isFocused && MappingPolicy.site(bar.text?.toString().orEmpty())==(mapping.scope.site to mapping.scope.screen)){"Tab Chrome berubah sebelum klik"}}
         if(mapping.scope.packageName==MappingPolicy.BYGA && mapping.scope.site.isNotBlank())check(MappingBrowserContext.visible && MappingPolicy.site(MappingBrowserContext.url)==(mapping.scope.site to mapping.scope.screen)){"Halaman browser BYGA berubah sebelum klik"}
