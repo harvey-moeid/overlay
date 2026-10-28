@@ -104,3 +104,9 @@ Tambahan pengujian nyata:
 Cloud tidak memiliki perangkat tersambung (`adb devices -l` kosong) atau `/dev/kvm`. APK instrumentation **dikompilasi, belum dijalankan lokal**. UI native tambahan, izin OEM, gesture overlay, rotasi/capture, WebView login, SAF/MediaStore Android nyata, provider/account nyata serta frame timing Galaxy A06: **NEEDS_REAL_DEVICE**. Gunakan [checklist penerimaan](REAL_DEVICE_ACCEPTANCE.md). Riwayat hasil lama di atas tidak mewakili run V2.
 
 Build optimized R8/resource shrinking serta hasil GitHub Actions dicatat pada laporan pengiriman setelah command/run selesai. Private signing key tidak berada di artifact; signature konsisten untuk update memerlukan key pemilik yang sama.
+
+### Pengamatan CI emulator pertama V2
+
+[Run 38 / fc0de00](https://github.com/harvey-moeid/overlay/actions/runs/40736087330) membangun dan mengunggah APK optimized serta lulus fixture browser. Android 15: **9/9 instrumentation PASS**. Android 16: **7/9 PASS, 2 FAIL** pada assertion dialog app picker dan counter latihan setelah sentuhan; tidak diklaim PASS. Tes performa, Room/Keystore/budget lulus. Emulator API36 mencatat 478 frame, p95 66ms, max 177ms, 0 frozen; API35 471 frame, p95 71ms, 0 frozen. Angka emulator bukan performa Galaxy A06.
+
+Helper UI test diperketat agar target berada di area konten di antara toolbar dan navigasi serta bounds stabil sebelum satu klik. Assertion hasil tetap wajib; tidak ditutupi retry klik. Screenshot/hierarchy spesifik kegagalan ditambahkan. Hasil verifikasi revisi harness dicatat pada run CI dan laporan PR #6, terpisah dari hasil gagal di atas.

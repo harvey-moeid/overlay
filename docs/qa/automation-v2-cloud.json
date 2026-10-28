@@ -18,5 +18,13 @@
   },
   "offline_chromium": "PASS",
   "instrumentation_local": "NOT_RUN_NO_DEVICE_NO_KVM",
-  "real_device": "NEEDS_REAL_DEVICE"
+  "real_device": "NEEDS_REAL_DEVICE",
+  "initial_ci": {
+    "run_id": 40736087330,
+    "commit": "fc0de0027fcf596b7eaa455c1fd30c00cd9f030a",
+    "build": "PASS_OPTIMIZED_APK_UPLOADED",
+    "offline_chromium": "PASS",
+    "android_15": "9_OF_9_PASS",
+    "android_16": "7_OF_9_PASS_2_UI_ASSERTIONS_FAILED"
+  }
 }
