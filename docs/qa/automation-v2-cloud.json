@@ -26,5 +26,61 @@
     "offline_chromium": "PASS",
     "android_15": "9_OF_9_PASS",
     "android_16": "7_OF_9_PASS_2_UI_ASSERTIONS_FAILED"
-  }
+  },
+  "final_ci": {
+    "run_id": 40739696463,
+    "code_commit": "b399f7aad620f0653caf4f5417e130747dede054",
+    "conclusion": "SUCCESS",
+    "build": "PASS_DEBUG_OPTIMIZED_R8_AND_TEST_APKS",
+    "offline_chromium": "PASS",
+    "unit_tests": 270,
+    "unit_failures": 0,
+    "lint_errors": 0,
+    "lint_warnings": 93,
+    "optimized_artifact_id": 12837704873,
+    "apk_sha256": "889bd3c7abed84a04e674d9c1a34d3e0a082d7534b2ffbf587e3e57a9cc9353c",
+    "runtime": [
+      {
+        "api": 35,
+        "pass": [
+          "OK (9 tests)"
+        ],
+        "sha256": "889bd3c7abed84a04e674d9c1a34d3e0a082d7534b2ffbf587e3e57a9cc9353c",
+        "performance": {
+          "version": "0.7.0-automation-v2",
+          "buildType": "optimized",
+          "widthPixels": 1080,
+          "heightPixels": 1920,
+          "frames": 473,
+          "over32ms": 354,
+          "frozen": 0,
+          "p95ms": 83,
+          "maxMs": 114,
+          "quickPanelMs": 1096
+        },
+        "parser": null
+      },
+      {
+        "api": 36,
+        "pass": [
+          "OK (9 tests)"
+        ],
+        "sha256": "889bd3c7abed84a04e674d9c1a34d3e0a082d7534b2ffbf587e3e57a9cc9353c",
+        "performance": {
+          "version": "0.7.0-automation-v2",
+          "buildType": "optimized",
+          "widthPixels": 1080,
+          "heightPixels": 1920,
+          "frames": 468,
+          "over32ms": 372,
+          "frozen": 0,
+          "p95ms": 83,
+          "maxMs": 157,
+          "quickPanelMs": 920
+        },
+        "parser": null
+      }
+    ]
+  },
+  "environment_note": "Cloud workspace disconnected during the last local optimized/test compilation; final optimized build and instrumentation results above are from GitHub Actions."
 }

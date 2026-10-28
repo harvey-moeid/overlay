@@ -110,3 +110,26 @@ Build optimized R8/resource shrinking serta hasil GitHub Actions dicatat pada la
 [Run 38 / fc0de00](https://github.com/harvey-moeid/overlay/actions/runs/40736087330) membangun dan mengunggah APK optimized serta lulus fixture browser. Android 15: **9/9 instrumentation PASS**. Android 16: **7/9 PASS, 2 FAIL** pada assertion dialog app picker dan counter latihan setelah sentuhan; tidak diklaim PASS. Tes performa, Room/Keystore/budget lulus. Emulator API36 mencatat 478 frame, p95 66ms, max 177ms, 0 frozen; API35 471 frame, p95 71ms, 0 frozen. Angka emulator bukan performa Galaxy A06.
 
 Helper UI test diperketat agar target berada di area konten di antara toolbar dan navigasi serta bounds stabil sebelum satu klik. Assertion hasil tetap wajib; tidak ditutupi retry klik. Screenshot/hierarchy spesifik kegagalan ditambahkan. Hasil verifikasi revisi harness dicatat pada run CI dan laporan PR #6, terpisah dari hasil gagal di atas.
+
+### Verifikasi akhir revisi harness — PASS
+
+[Run 39 / b399f7a](https://github.com/harvey-moeid/overlay/actions/runs/40739696463) selesai **SUCCESS**. Seluruh assertion hasil tetap aktif, termasuk satu klik latihan dan dialog pencarian aplikasi.
+
+| Gerbang | Hasil aktual |
+|---|---|
+| Kotlin/Accessibility/Room/Compose JVM | 270 tes, 0 failure/error/skipped |
+| Android lint | 0 error, 93 warning |
+| Debug + debug instrumentation APK | PASS |
+| Optimized R8/resource shrinking + instrumentation APK | PASS |
+| Offline Chromium adapter fixtures | PASS |
+| Runtime-result parser | 4/4 PASS |
+| Android 15 / API35 instrumentation | 9/9 PASS |
+| Android 16 / API36 instrumentation | 9/9 PASS |
+
+[Artifact BYGA-Smart-Overlay-optimized](https://github.com/harvey-moeid/overlay/actions/runs/40739696463/artifacts/12837704873) berasal dari source aplikasi revisi b399f7a, versi 0.7.0-automation-v2 / versionCode 9. Kedua emulator memasang APK dengan SHA-256 yang sama: `889bd3c7abed84a04e674d9c1a34d3e0a082d7534b2ffbf587e3e57a9cc9353c`.
+
+Pengukuran smoke emulator optimized: API35 473 frame, p95 83ms, max 114ms, 0 frozen, quick panel 1096ms; API36 468 frame, p95 83ms, max 157ms, 0 frozen, quick panel 920ms. Ini memenuhi threshold regresi emulator existing, **bukan** bukti 60fps atau performa Galaxy A06.
+
+Lingkungan workspace cloud terputus saat kompilasi optimized/test lokal terakhir. Percobaan lokal yang terputus tidak ditandai PASS; hasil optimized dan instrumentation akhir di atas berasal dari CI. Laporan ini hanya mengubah dokumentasi, source aplikasi/test yang diuji tetap b399f7a.
+
+Login/akun/generasi ChatGPT dan Flow nyata, overlay/Accessibility OEM, serta penerimaan Galaxy A06 tetap **NEEDS_REAL_DEVICE**. Lihat [checklist perangkat](REAL_DEVICE_ACCEPTANCE.md).
