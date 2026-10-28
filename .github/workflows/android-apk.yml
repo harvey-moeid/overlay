@@ -37,7 +37,25 @@ jobs:
       - name: Test and build debug APK
         run: ./gradlew testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug --no-daemon --console=plain
       - name: Build optimized app and instrumentation APKs
-        run: ./gradlew assembleOptimized assembleOptimizedAndroidTest -PqaBuildType=optimized --no-daemon --console=plain
+        env:
+          BYGA_SIGNING_KEYSTORE_BASE64: ${{ secrets.BYGA_SIGNING_KEYSTORE_BASE64 }}
+          BYGA_SIGNING_STORE_PASSWORD: ${{ secrets.BYGA_SIGNING_STORE_PASSWORD }}
+          BYGA_SIGNING_KEY_ALIAS: ${{ secrets.BYGA_SIGNING_KEY_ALIAS }}
+          BYGA_SIGNING_KEY_PASSWORD: ${{ secrets.BYGA_SIGNING_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$BYGA_SIGNING_KEYSTORE_BASE64" ]]; then
+            export BYGA_SIGNING_STORE="$RUNNER_TEMP/byga-update-signing.jks"
+            python3 - <<'PY'
+          import base64, os
+          with open(os.environ['BYGA_SIGNING_STORE'], 'wb') as output:
+              output.write(base64.b64decode(os.environ['BYGA_SIGNING_KEYSTORE_BASE64'], validate=True))
+          os.chmod(os.environ['BYGA_SIGNING_STORE'], 0o600)
+          PY
+          fi
+          trap 'if [[ -n "${BYGA_SIGNING_STORE:-}" ]]; then rm -f "$BYGA_SIGNING_STORE"; fi' EXIT
+          ./gradlew assembleOptimized assembleOptimizedAndroidTest -PqaBuildType=optimized --no-daemon --console=plain
       - name: Check runtime result parser
         run: python3 -m unittest discover -s scripts -p 'test_instrumentation_result.py'
       - name: Runtime APKs
@@ -60,6 +78,13 @@ jobs:
         with:
           name: unit-test-reports
           path: app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: ignore
+      - name: Lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-lint-reports
+          path: app/build/reports/lint-results-debug.*
           if-no-files-found: ignore
       - name: Dashboard preview (JVM SDK35)
         if: always()

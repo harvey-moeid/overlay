@@ -6,6 +6,7 @@ import android.app.KeyguardManager
 import android.graphics.Path
 import android.graphics.Rect
 import android.os.SystemClock
+import android.os.Bundle
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityNodeInfo
@@ -19,6 +20,7 @@ import kotlin.coroutines.resume
 class MappingAccessibility(private val service:AccessibilityService) {
     private data class Observed(val snapshot:MappingSnapshot,val nodes:Map<String,AccessibilityNodeInfo>,val windowId:Int,val addressBar:AccessibilityNodeInfo?)
     @Volatile private var nativeScreen=""
+    @Volatile private var screenPackage=""
     private fun childLabel(root:AccessibilityNodeInfo,budget:ScanBudget):String {
         val queue=java.util.ArrayDeque<Pair<AccessibilityNodeInfo,Int>>();queue.add(root to 0)
         val labels=mutableListOf<String>();var count=0
@@ -26,13 +28,22 @@ class MappingAccessibility(private val service:AccessibilityService) {
             budget.check()
             val (node,depth)=queue.removeFirst()
             if(node.isEditable || node.isPassword)continue
-            if(depth>0)node.text?.toString()?.trim()?.takeIf{it.length in 1..80}?.let{labels.add(it)}
+            if(depth>0)MappingPrivacy.label(node.text?.toString().orEmpty()).takeIf{it.isNotBlank()}?.let{labels.add(it)}
             if(depth<3)for(i in 0 until minOf(12,node.childCount))node.getChild(i)?.let{queue.add(it to depth+1)}
         }
         return labels.joinToString(" ")
     }
     fun screenChanged(pkg:String,screen:String) {
-        if(pkg==MappingPolicy.CHATGPT && screen.startsWith(pkg) && !screen.contains("View"))nativeScreen=screen.take(200)
+        if(pkg in MappingPolicy.packages && screen.startsWith(pkg) && !screen.contains("View")){screenPackage=pkg;nativeScreen=screen.take(200)}
+    }
+    private fun identity(node:AccessibilityNodeInfo,budget:ScanBudget):TargetIdentity {
+        val parent=node.parent
+        val structure=listOf(parent?.className?.toString().orEmpty(),node.className?.toString().orEmpty(),
+            (0 until minOf(node.childCount,12)).joinToString(","){node.getChild(it)?.className?.toString().orEmpty()}).joinToString("|")
+        return TargetIdentity(node.viewIdResourceName.orEmpty().take(200),
+            if(node.isEditable)"" else MappingPrivacy.label(node.text?.toString().orEmpty()).ifBlank{childLabel(node,budget)}.take(100),
+            MappingPrivacy.label((if(node.isEditable)node.hintText else node.contentDescription)?.toString().orEmpty()),node.className?.toString().orEmpty().take(150),
+            parent?.viewIdResourceName.orEmpty().take(200),mappingHash(structure))
     }
     private fun descendants(root:AccessibilityNodeInfo,budget:ScanBudget):List<AccessibilityNodeInfo> {
         val queue=java.util.ArrayDeque<AccessibilityNodeInfo>();queue.add(root)
@@ -47,14 +58,16 @@ class MappingAccessibility(private val service:AccessibilityService) {
         return nodes
     }
     private fun observe(budget:ScanBudget):Observed {
+        checkConnected()
+        requireNoSystemDialog()
         val started=SystemClock.elapsedRealtime()
         check(!service.getSystemService(KeyguardManager::class.java).isKeyguardLocked){"Buka kunci HP dahulu"}
         val root=service.windows.filter{it.type==AccessibilityWindowInfo.TYPE_APPLICATION}.maxByOrNull{it.layer}?.root
             ?: service.rootInActiveWindow ?: error("Layar aplikasi tidak dapat dibaca")
         val pkg=root.packageName?.toString() ?: error("Aplikasi tidak diketahui")
-        check(pkg in MappingPolicy.packages){"Target tahap ini: ChatGPT, Chrome, atau browser BYGA"}
+        check(pkg in MappingPolicy.packages){"Izinkan aplikasi tujuan melalui Smart Mapping dahulu"}
         val all=descendants(root,budget)
-        check(all.none { it.isVisibleToUser && (it.isPassword || (it.isEditable && Regex("(?i)otp|verification|verifikasi|password|kata sandi|2fa").containsMatchIn("${it.hintText} ${it.contentDescription}"))) }){"Selesaikan login/verifikasi dahulu; layar sensitif tidak dipetakan"}
+        check(all.none { it.isVisibleToUser && (it.isPassword || (it.isEditable && MappingPrivacy.sensitiveLabel("${it.hintText} ${it.contentDescription} ${it.viewIdResourceName}"))) }){"Selesaikan login/verifikasi dahulu; layar sensitif tidak dipetakan"}
         var scope:MappingScope
         var content=all
         var addressBar:AccessibilityNodeInfo?=null
@@ -76,40 +89,76 @@ class MappingAccessibility(private val service:AccessibilityService) {
                 content=descendants(demo,budget)
                 scope=MappingScope(pkg,screen="mapping-test")
             }
-        } else scope=MappingScope(pkg,screen=nativeScreen.ifBlank{root.className?.toString() ?: "ChatGPT"})
+        } else {
+            // Embedded browsers in arbitrary apps have no trustworthy origin source.
+            check(pkg==MappingPolicy.CHATGPT || all.none{it.className?.toString()=="android.webkit.WebView"}){"WebView aplikasi ini memerlukan adapter origin khusus; gunakan handoff manual"}
+            scope=MappingScope(pkg,screen=if(screenPackage==pkg)nativeScreen else root.className?.toString().orEmpty().ifBlank{"native"})
+        }
         check(MappingPolicy.allowedScope(scope))
         val refs=linkedMapOf<String,AccessibilityNodeInfo>()
-        val candidates=content.filter { node -> budget.check();node.isVisibleToUser && node.isEnabled && node.isClickable && !node.isEditable && !node.isPassword && node.actionList.any{it.id==AccessibilityNodeInfo.ACTION_CLICK} }.mapNotNull { node ->
+        val candidates=content.filter { node -> budget.check();node.packageName?.toString()==pkg && node.windowId==root.windowId && node.isVisibleToUser && !node.isPassword && (node.isClickable || node.isEditable || node.isScrollable || node.isCheckable) }.mapNotNull { node ->
             val rect=Rect();node.getBoundsInScreen(rect)
             if(rect.isEmpty)return@mapNotNull null
-            val direct=node.text?.toString()?.trim().orEmpty()
-            val identity=TargetIdentity(node.viewIdResourceName.orEmpty().take(200),(direct.ifBlank{childLabel(node,budget)}).take(100),node.contentDescription?.toString().orEmpty().take(150),node.className?.toString().orEmpty().take(150),node.parent?.viewIdResourceName.orEmpty().take(200))
-            if(!identity.stable())return@mapNotNull null
+            val identity=identity(node,budget)
             val key=refs.size.toString();refs[key]=node
-            MappingCandidate(key,identity,TargetBounds(rect.left,rect.top,rect.right,rect.bottom))
+            val kind=when {node.isEditable->ElementKind.INPUT;node.isCheckable->ElementKind.TOGGLE;node.isScrollable->ElementKind.SCROLL;node.className?.toString()?.contains("Tab")==true->ElementKind.TAB;else->ElementKind.BUTTON}
+            MappingCandidate(key,identity,TargetBounds(rect.left,rect.top,rect.right,rect.bottom),kind,node.isEnabled,node.isClickable,node.isChecked,node.isSelected,node.windowId)
         }
         @Suppress("DEPRECATION") val display=service.getSystemService(WindowManager::class.java).defaultDisplay
         val metrics=DisplayMetrics();@Suppress("DEPRECATION") display.getRealMetrics(metrics)
         val layout=mappingHash(candidates.map{"${it.identity}:${it.bounds}"}.sorted().joinToString("|"))
-        return Observed(MappingSnapshot(scope,candidates,metrics.widthPixels,metrics.heightPixels,display.rotation,layout,started),refs,root.windowId,addressBar)
+        com.byga.smartoverlay.performance.AutomationPerformance.scans.add(SystemClock.elapsedRealtime()-started,all.size)
+        return Observed(MappingSnapshot(scope,candidates,metrics.widthPixels,metrics.heightPixels,display.rotation,layout,started,root.windowId),refs,root.windowId,addressBar)
     }
     suspend fun snapshot():MappingSnapshot=AccessibilityWork.run { observe(ScanBudget(currentCoroutineContext())).snapshot }
-    suspend fun click(mapping:ButtonMapping,permit:MappingClickPermit):String = AccessibilityWork.run {
+    private fun checkConnected() {
+        if(service is com.byga.smartoverlay.accessibility.SafeAccessibilityService)check(com.byga.smartoverlay.accessibility.SafeAccessibilityService.current===service){"Accessibility terputus/dicabut; aksi dibatalkan"}
+    }
+    private fun requireNoSystemDialog() {
+        check(service.windows.none{it.type==AccessibilityWindowInfo.TYPE_SYSTEM && (it.isActive || it.isFocused) && it.root?.packageName?.toString()!=MappingPolicy.BYGA}){
+            "Selesaikan dialog atau panel sistem secara manual. BYGA tidak menekan atau menutup izin/proteksi sistem."
+        }
+    }
+    suspend fun click(mapping:ButtonMapping,permit:MappingClickPermit):String = perform(mapping,permit)
+    suspend fun perform(mapping:ButtonMapping,permit:MappingClickPermit,operation:String="CLICK",value:String=""):String = AccessibilityWork.run {
         val budget=ScanBudget(currentCoroutineContext())
         val observed=observe(budget);val snapshot=observed.snapshot;val now=SystemClock.elapsedRealtime()
-        check(permit.claim(mapping,now)){"Persetujuan klik kedaluwarsa, berubah, atau sudah digunakan"}
+        check(permit.claim(mapping,now,operation,value)){"Persetujuan aksi kedaluwarsa, berubah, atau sudah digunakan"}
         val front=service.windows.filter{it.type==AccessibilityWindowInfo.TYPE_APPLICATION}.maxByOrNull{it.layer}?.root ?: service.rootInActiveWindow
+        checkConnected()
+        requireNoSystemDialog()
         check(front?.packageName?.toString()==mapping.scope.packageName && front.windowId==observed.windowId){"Jendela aplikasi berubah sebelum klik"}
         observed.addressBar?.let{bar->check(bar.refresh() && !bar.isFocused && MappingPolicy.site(bar.text?.toString().orEmpty())==(mapping.scope.site to mapping.scope.screen)){"Tab Chrome berubah sebelum klik"}}
         if(mapping.scope.packageName==MappingPolicy.BYGA && mapping.scope.site.isNotBlank())check(MappingBrowserContext.visible && MappingPolicy.site(MappingBrowserContext.url)==(mapping.scope.site to mapping.scope.screen)){"Halaman browser BYGA berubah sebelum klik"}
+        if(operation=="BACK") {
+            check(MappingPolicy.resolve(mapping,snapshot,now)!=null){"Layar/target navigasi berubah"}
+            budget.check()
+            check(!service.getSystemService(KeyguardManager::class.java).isKeyguardLocked)
+            check(service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)){"Navigasi ditolak; periksa layar manual"}
+            return@run "BACK_ACCEPTED • periksa layar tujuan sebelum melanjutkan"
+        }
         if(mapping.kind==MappingKind.SEMANTIC) {
             val candidate=MappingPolicy.resolve(mapping,snapshot,now) ?: error("Tombol hilang/ambigu atau layar berubah. Petakan ulang; tidak ada klik tebakan.")
-            val node=checkNotNull(observed.nodes[candidate.key]);check(node.refresh() && node.isVisibleToUser && node.isEnabled && !node.isPassword && !node.isEditable)
-            val refreshed=TargetIdentity(node.viewIdResourceName.orEmpty().take(200),node.text?.toString()?.trim().orEmpty().ifBlank{childLabel(node,budget)}.take(100),node.contentDescription?.toString().orEmpty().take(150),node.className?.toString().orEmpty().take(150),node.parent?.viewIdResourceName.orEmpty().take(200))
+            val node=checkNotNull(observed.nodes[candidate.key]);check(node.refresh() && node.windowId==observed.windowId && node.packageName?.toString()==mapping.scope.packageName && node.isVisibleToUser && node.isEnabled && !node.isPassword)
+            val refreshed=identity(node,budget)
             check(refreshed==candidate.identity){"Identitas tombol berubah sebelum klik"}
             budget.check()
-            check(node.performAction(AccessibilityNodeInfo.ACTION_CLICK)){"Aplikasi menolak klik. Periksa hasil sebelum mengulang."}
+            check(!service.getSystemService(KeyguardManager::class.java).isKeyguardLocked){"Perangkat terkunci sebelum aksi"}
+            val action=when(operation){
+                "INPUT"->{check(node.isEditable && value.isNotBlank() && value.length<=4000);AccessibilityNodeInfo.ACTION_SET_TEXT}
+                "SCROLL_FORWARD"->{check(node.isScrollable);AccessibilityNodeInfo.ACTION_SCROLL_FORWARD}
+                "SCROLL_BACKWARD"->{check(node.isScrollable);AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD}
+                else->{check(operation=="CLICK" && node.isClickable && !node.isEditable);AccessibilityNodeInfo.ACTION_CLICK}
+            }
+            check(node.actionList.any{it.id==action}){"Aksi tidak didukung elemen"}
+            val arguments=if(operation=="INPUT")Bundle().apply{putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,value)} else null
+            check(node.performAction(action,arguments)){"Aplikasi menolak aksi. Periksa hasil sebelum mengulang."}
+            if(operation=="INPUT") {
+                check(node.refresh() && node.text?.toString()==value){"Nilai input tidak terverifikasi; aksi tidak diulang"}
+                return@run "INPUT_VERIFIED"
+            }
         } else {
+            check(operation=="CLICK"){"Input/scroll memerlukan identitas semantik"}
             check(MappingPolicy.pointAllowed(mapping,snapshot,now)){"Ukuran, orientasi, atau layout berubah. Petakan ulang posisi manual."}
             val path=Path().apply{moveTo(mapping.x*snapshot.width,mapping.y*snapshot.height)}
             budget.check()
@@ -123,6 +172,6 @@ class MappingAccessibility(private val service:AccessibilityService) {
             }
             check(delivered){"Gestur tidak terkonfirmasi. Periksa hasil; jangan ulangi otomatis."}
         }
-        "CLICK_ACCEPTED • perintah dikirim satu kali; hasil aplikasi perlu diperiksa"
+        "${if(operation=="CLICK")"CLICK" else "SCROLL"}_ACCEPTED • perintah dikirim satu kali; hasil aplikasi perlu diperiksa"
     }
 }

@@ -92,3 +92,11 @@ GitHub Actions outcome dicatat terpisah pada run commit terkait; status lokal di
 
 ### CI setup correction
 Run pertama berhenti sebelum build karena default setup-android meminta legacy SDK package `tools` yang tidak tersedia. Workflow sekarang hanya memasang `platform-tools` dan mematok command-line tools `13114758` yang telah dipakai lokal. Build/test aplikasi lokal tetap lulus; run koreksi menjadi bukti CI tersendiri.
+
+## 0.7.0 — Automation V2 (2026-10-28)
+
+- Perluas engine Smart Mapping existing dengan jenis kontrol, status resolver, struktur/window evidence, native app grant, input/scroll/back/wait dan pemeriksaan OTP resource ID.
+- Hubungkan guided recorder Room, editor IF/ELSE maju, retry observasi/timeout, dry-run binding, duplikasi, evidence verification, cancellation dan review rerun.
+- Perkuat adapter ChatGPT/Flow: command ownership/duplicate guard, selector unik, account/project/action approval, CURRENT/NEW project, preview upload terarah dan official browser manual handoff.
+- Tambahkan bantuan AI opt-in tanpa kemampuan eksekusi, scan/heap/ANR diagnostics, HTTP cancellation hingga body selesai dan signing key pemilik opsional pada CI.
+- Tambahkan pengujian Kotlin/Robolectric/Room/Compose dan fixture offline; dokumentasikan acceptance HP secara eksplisit. Tidak mengklaim kompatibilitas Samsung/akun situs asli dari cloud.

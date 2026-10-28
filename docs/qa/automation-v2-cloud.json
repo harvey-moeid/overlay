@@ -1,0 +1,86 @@
+{
+  "date_utc": "2026-10-28",
+  "base_commit": "89c9b8c46eaf9f5ab36bf3750269591a1b5c8a2c",
+  "baseline_jvm": {
+    "tests": 220,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "jvm": {
+    "tests": 270,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lint": {
+    "Warning": 93
+  },
+  "offline_chromium": "PASS",
+  "instrumentation_local": "NOT_RUN_NO_DEVICE_NO_KVM",
+  "real_device": "NEEDS_REAL_DEVICE",
+  "initial_ci": {
+    "run_id": 40736087330,
+    "commit": "fc0de0027fcf596b7eaa455c1fd30c00cd9f030a",
+    "build": "PASS_OPTIMIZED_APK_UPLOADED",
+    "offline_chromium": "PASS",
+    "android_15": "9_OF_9_PASS",
+    "android_16": "7_OF_9_PASS_2_UI_ASSERTIONS_FAILED"
+  },
+  "final_ci": {
+    "run_id": 40739696463,
+    "code_commit": "b399f7aad620f0653caf4f5417e130747dede054",
+    "conclusion": "SUCCESS",
+    "build": "PASS_DEBUG_OPTIMIZED_R8_AND_TEST_APKS",
+    "offline_chromium": "PASS",
+    "unit_tests": 270,
+    "unit_failures": 0,
+    "lint_errors": 0,
+    "lint_warnings": 93,
+    "optimized_artifact_id": 12837704873,
+    "apk_sha256": "889bd3c7abed84a04e674d9c1a34d3e0a082d7534b2ffbf587e3e57a9cc9353c",
+    "runtime": [
+      {
+        "api": 35,
+        "pass": [
+          "OK (9 tests)"
+        ],
+        "sha256": "889bd3c7abed84a04e674d9c1a34d3e0a082d7534b2ffbf587e3e57a9cc9353c",
+        "performance": {
+          "version": "0.7.0-automation-v2",
+          "buildType": "optimized",
+          "widthPixels": 1080,
+          "heightPixels": 1920,
+          "frames": 473,
+          "over32ms": 354,
+          "frozen": 0,
+          "p95ms": 83,
+          "maxMs": 114,
+          "quickPanelMs": 1096
+        },
+        "parser": null
+      },
+      {
+        "api": 36,
+        "pass": [
+          "OK (9 tests)"
+        ],
+        "sha256": "889bd3c7abed84a04e674d9c1a34d3e0a082d7534b2ffbf587e3e57a9cc9353c",
+        "performance": {
+          "version": "0.7.0-automation-v2",
+          "buildType": "optimized",
+          "widthPixels": 1080,
+          "heightPixels": 1920,
+          "frames": 468,
+          "over32ms": 372,
+          "frozen": 0,
+          "p95ms": 83,
+          "maxMs": 157,
+          "quickPanelMs": 920
+        },
+        "parser": null
+      }
+    ]
+  },
+  "environment_note": "Cloud workspace disconnected during the last local optimized/test compilation; final optimized build and instrumentation results above are from GitHub Actions."
+}

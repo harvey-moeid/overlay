@@ -1,3 +1,5 @@
+> Pembaruan 0.7.0: panduan aktif [Smart Mapping V2](SMART_MAPPING_V2.md). Ukuran bubble sekarang default 28dp dengan touch minimal 48dp; keterangan ukuran dan jumlah tes 0.6.0 di bawah adalah historis.
+
 # Smart Mapping dan maskot BG — 0.6.0
 
 ## Logo dan robot bubble

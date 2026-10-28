@@ -1,6 +1,7 @@
 package com.byga.smartoverlay
 
 import android.content.Intent
+import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.*
@@ -20,7 +21,21 @@ class StudioDeviceTest {
         for(direction in listOf(-1,1,-1))repeat(16) {
             device.wait(Until.findObject(selector),300)?.let { node ->
                 val bounds=node.visibleBounds
-                if(bounds.width()>0 && bounds.height()>0 && bounds.centerY()<device.displayHeight*0.84)return node
+                if(bounds.width()>0 && bounds.height()>0) {
+                    // A clipped text node can sit beneath the fixed toolbar/navigation chrome.
+                    // Scroll it into the content viewport, then requery after layout settles.
+                    if(bounds.top<device.displayHeight*0.16) {
+                        device.swipe(device.displayWidth/2,device.displayHeight*2/5,device.displayWidth/2,device.displayHeight*3/5,100)
+                        device.waitForIdle();return@repeat
+                    }
+                    if(bounds.bottom>device.displayHeight*0.84) {
+                        device.swipe(device.displayWidth/2,device.displayHeight*3/5,device.displayWidth/2,device.displayHeight*2/5,100)
+                        device.waitForIdle();return@repeat
+                    }
+                    device.waitForIdle();SystemClock.sleep(150)
+                    device.findObject(selector)?.let { fresh -> if(fresh.visibleBounds==bounds)return fresh }
+                    return@repeat
+                }
             }
             val low=device.displayHeight*3/4;val high=device.displayHeight*2/5
             device.swipe(device.displayWidth/2,if(direction<0)low else high,device.displayWidth/2,if(direction<0)high else low,100)
@@ -31,13 +46,19 @@ class StudioDeviceTest {
         device.takeScreenshot(File(dir,"scroll-failure.png"))
         throw AssertionError("Visible scroll target not found: $selector")
     }
+    private fun expect(device:UiDevice,selector:BySelector,message:String,artifact:String) {
+        if(device.wait(Until.hasObject(selector),10000))return
+        val dir=InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null)
+        device.dumpWindowHierarchy(File(dir,"$artifact.xml"));device.takeScreenshot(File(dir,"$artifact.png"))
+        fail(message)
+    }
     @Test fun smartMappingRouteAndPracticeButton(){
         val instrumentation=InstrumentationRegistry.getInstrumentation();val context=instrumentation.targetContext;val device=UiDevice.getInstance(instrumentation)
         context.startActivity(Intent(context,MainActivity::class.java).putExtra("open_mapping",true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         assertTrue(device.wait(Until.hasObject(By.textContains("Kenali tombol.")),30000))
         device.takeScreenshot(File(context.getExternalFilesDir(null),"byga-smart-mapping.png"))
         scrollTo(device,By.desc("byga_mapping_demo_button")).click()
-        assertTrue(device.wait(Until.hasObject(By.text("Ditekan 1 kali")),10000))
+        expect(device,By.text("Ditekan 1 kali"),"One practice click must increment the counter","mapping-click-failure")
     }
     @Test fun budgetReservationsAreAtomicAndPersisted()=runBlocking{
         val context=InstrumentationRegistry.getInstrumentation().targetContext
@@ -73,7 +94,7 @@ class StudioDeviceTest {
         device.takeScreenshot(File(context.getExternalFilesDir(null),"byga-workflows.png"))
         scrollTo(device,By.text("Buka aplikasi terinstal")).click()
         scrollTo(device,By.text("Pilih aplikasi terinstal")).click()
-        assertTrue("Installed app search dialog",device.wait(Until.hasObject(By.text("Cari nama aplikasi")),10000))
+        expect(device,By.text("Cari nama aplikasi"),"Installed app search dialog","app-picker-failure")
         device.findObject(By.text("Tutup")).click()
     }
 }

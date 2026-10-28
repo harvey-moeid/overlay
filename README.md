@@ -1,12 +1,15 @@
 # BYGA Smart Overlay — Studio
 
+**0.7.0 Automation V2:** discovery kontrol bertipe, status mapping, grant aplikasi native, guided recorder, wait/IF–ELSE, verifikasi/checkpoint/cancellation, approval akun/proyek web dan bantuan AI opt-in. Pengujian situs/aplikasi fisik tetap **NEEDS_REAL_DEVICE**. Panduan: [Smart Mapping V2](docs/SMART_MAPPING_V2.md), [Workflow Studio V2](docs/WORKFLOW_STUDIO_V2.md), [AI Agent Assistance](docs/AI_AGENT_AUTOMATION.md), [penerimaan HP](docs/REAL_DEVICE_ACCEPTANCE.md), [audit/lisensi](docs/AUTOMATION_V2_AUDIT.md).
+
+
 Asisten produktivitas Android berbahasa Indonesia: dashboard navy/cyan, robot bubble, AI Chat, workflow yang direview, serta studio draft sosial. Orkestrasi dan data berada di HP; provider AI dihubungi langsung melalui HTTPS. Tidak ada backend pribadi, root, Shizuku, atau kebutuhan ADB untuk penggunaan aplikasi.
 
 **Rilis 0.6.0 Smart Mapping adalah pengembangan fungsional, bukan klaim PRD selesai 99,9%.** Build/test cloud tidak membuktikan kompatibilitas aplikasi target atau Samsung. Lihat [status PRD](docs/IMPLEMENTATION_STATUS.md) dan [matriks uji](docs/TEST_MATRIX.md). Baseline asli tetap utuh: [PRD v1](docs/PRD.md), [PRD v2](docs/PRD_v2.md).
 
 ## Memperoleh APK
 
-Buka **GitHub → Actions → Android Optimized APK and Runtime QA → run sukses → Artifacts → BYGA-Smart-Overlay-optimized**. Ekstrak ZIP, transfer `app-optimized.apk` ke HP dan instal melalui installer Android. Debug signing key pada runner berbeda dapat berbeda; update yang ditolak installer mungkin memerlukan uninstall (menghapus data lokal). Tidak ada release-signing key atau API key dalam CI.
+Buka **GitHub → Actions → Android Optimized APK and Runtime QA → run sukses → Artifacts → BYGA-Smart-Overlay-optimized**. Ekstrak ZIP, transfer `app-optimized.apk` ke HP dan instal melalui installer Android. Update hanya dapat dipasang bila signing key sama dengan instalasi sebelumnya dan versionCode meningkat. Jangan menghapus data pengguna untuk memaksa update. CI mendukung key pemilik opsional melalui secrets `BYGA_SIGNING_KEYSTORE_BASE64`, `BYGA_SIGNING_STORE_PASSWORD`, `BYGA_SIGNING_KEY_ALIAS`, dan `BYGA_SIGNING_KEY_PASSWORD`; key hanya ditulis sementara pada runner, tidak diunggah sebagai artifact. Tanpa konfigurasi tersebut, fallback debug key runner tidak menjamin update lintas run. APK tidak memuat private signing key atau API key provider.
 
 ## Yang dapat digunakan
 

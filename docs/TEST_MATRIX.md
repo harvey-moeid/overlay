@@ -81,3 +81,55 @@ Gerbang akhir Studio 0.4.0: `testDebugUnitTest assembleDebug assembleDebugAndroi
 - Fixture DOM Chromium offline ChatGPT/Flow: PASS. Lint: 0 error/fatal, 79 warning nonblocking. Signature APK debug v2 terverifikasi; versionCode 6.
 - `adb devices -l`: tidak ada emulator/HP tersambung. APK instrumentation dikompilasi; device tests **belum dijalankan**. Interaksi overlay/point/gesture, OEM, URL Chrome dan akun ChatGPT/Flow tetap NEEDS_REAL_DEVICE.
 - [Penggunaan dan batas Smart Mapping](SMART_MAPPING.md). Tidak ada klaim kompatibilitas 99,9% dari hasil build/fixture ini.
+
+## Automation V2 — 0.7.0 / 28 Oktober 2026
+
+Baseline commit `89c9b8c`: 220/220 tes JVM dan fixture offline PASS sebelum perubahan. Hasil V2: **270/270 tes JVM**, **0 failure/error/skipped** pada gerbang `./scripts/cloud-build.sh testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug` (BUILD SUCCESSFUL). Tes mencakup Kotlin logic/state machine, Accessibility Robolectric SDK35, Room migration/reopen serta Compose UI. Android lint: **0 error/fatal, 93 warning**; warning belum seluruhnya dibersihkan. [Ringkasan terstruktur](qa/automation-v2-cloud.json).
+
+Tambahan pengujian nyata:
+
+- Tombol bergeser, resource ID/struktur berubah, duplikasi, disabled, window/package salah dan snapshot stale; permit input terikat operasi/teks.
+- Dialog/panel sistem aktif di atas aplikasi memblokir discovery/klik/Kembali; dekorasi sistem yang tidak aktif tidak memblokir snapshot.
+- Discovery input tanpa isi field, checkbox/tab/container scroll, foreign-package child, password/OTP termasuk resource `otp_code`; set-text diterima tanpa nilai sesuai ditolak. Fixture node Robolectric bukan bukti native Binder aplikasi asli.
+- Transisi launch→wait saat target loading atau foreground sebelumnya berbeda memakai observasi scope terbatas; Stop menghentikan observasi berikutnya tanpa dispatch.
+- IF/ELSE maju, schema/timeout/retry, dry-run mapping hilang/diubah, evidence accepted vs uncertain, Stop saat aksi aktif, timeout generate satu dispatch, provider/network gagal tanpa retry, process death/checkpoint dan review rerun berbiaya.
+- Room SQLite asli pada Robolectric: migrasi 1→2 mempertahankan mapping/workflow/checkpoint, recorder draft/reopen dan revoke grant. Tes instrumentation Keystore existing tetap memerlukan Android runtime.
+- Compose: route lama, area latihan, recorder dan editor IF/ELSE dapat dijangkau pada layout HP; tombol aksi dibungkus sesuai lebar layar.
+- HTTP MockWebServer lokal: Stop menutup call saat menunggu headers dan saat membaca response body, tanpa membiarkan pembatalan menjadi hasil sukses.
+
+`node scripts/test-workflow-adapter.cjs`: **PASS**, Chromium offline. Tambahan kontrak duplicate begin tidak mengklik ulang, selector Send/Generate ambigu menunggu, proyek CURRENT tidak membuat proyek baru, origin/proyek berubah ditolak, upload tanpa file belum selesai, serta hasil lama tidak dipakai. Ini bukan pengujian login/akun/generasi situs asli.
+
+`python3 -m unittest discover -s scripts -p 'test_instrumentation_result.py'`: **4/4 PASS**. YAML workflow dan shell signing diperiksa sintaksnya.
+
+Cloud tidak memiliki perangkat tersambung (`adb devices -l` kosong) atau `/dev/kvm`. APK instrumentation **dikompilasi, belum dijalankan lokal**. UI native tambahan, izin OEM, gesture overlay, rotasi/capture, WebView login, SAF/MediaStore Android nyata, provider/account nyata serta frame timing Galaxy A06: **NEEDS_REAL_DEVICE**. Gunakan [checklist penerimaan](REAL_DEVICE_ACCEPTANCE.md). Riwayat hasil lama di atas tidak mewakili run V2.
+
+Build optimized R8/resource shrinking serta hasil GitHub Actions dicatat pada laporan pengiriman setelah command/run selesai. Private signing key tidak berada di artifact; signature konsisten untuk update memerlukan key pemilik yang sama.
+
+### Pengamatan CI emulator pertama V2
+
+[Run 38 / fc0de00](https://github.com/harvey-moeid/overlay/actions/runs/40736087330) membangun dan mengunggah APK optimized serta lulus fixture browser. Android 15: **9/9 instrumentation PASS**. Android 16: **7/9 PASS, 2 FAIL** pada assertion dialog app picker dan counter latihan setelah sentuhan; tidak diklaim PASS. Tes performa, Room/Keystore/budget lulus. Emulator API36 mencatat 478 frame, p95 66ms, max 177ms, 0 frozen; API35 471 frame, p95 71ms, 0 frozen. Angka emulator bukan performa Galaxy A06.
+
+Helper UI test diperketat agar target berada di area konten di antara toolbar dan navigasi serta bounds stabil sebelum satu klik. Assertion hasil tetap wajib; tidak ditutupi retry klik. Screenshot/hierarchy spesifik kegagalan ditambahkan. Hasil verifikasi revisi harness dicatat pada run CI dan laporan PR #6, terpisah dari hasil gagal di atas.
+
+### Verifikasi akhir revisi harness — PASS
+
+[Run 39 / b399f7a](https://github.com/harvey-moeid/overlay/actions/runs/40739696463) selesai **SUCCESS**. Seluruh assertion hasil tetap aktif, termasuk satu klik latihan dan dialog pencarian aplikasi.
+
+| Gerbang | Hasil aktual |
+|---|---|
+| Kotlin/Accessibility/Room/Compose JVM | 270 tes, 0 failure/error/skipped |
+| Android lint | 0 error, 93 warning |
+| Debug + debug instrumentation APK | PASS |
+| Optimized R8/resource shrinking + instrumentation APK | PASS |
+| Offline Chromium adapter fixtures | PASS |
+| Runtime-result parser | 4/4 PASS |
+| Android 15 / API35 instrumentation | 9/9 PASS |
+| Android 16 / API36 instrumentation | 9/9 PASS |
+
+[Artifact BYGA-Smart-Overlay-optimized](https://github.com/harvey-moeid/overlay/actions/runs/40739696463/artifacts/12837704873) berasal dari source aplikasi revisi b399f7a, versi 0.7.0-automation-v2 / versionCode 9. Kedua emulator memasang APK dengan SHA-256 yang sama: `889bd3c7abed84a04e674d9c1a34d3e0a082d7534b2ffbf587e3e57a9cc9353c`.
+
+Pengukuran smoke emulator optimized: API35 473 frame, p95 83ms, max 114ms, 0 frozen, quick panel 1096ms; API36 468 frame, p95 83ms, max 157ms, 0 frozen, quick panel 920ms. Ini memenuhi threshold regresi emulator existing, **bukan** bukti 60fps atau performa Galaxy A06.
+
+Lingkungan workspace cloud terputus saat kompilasi optimized/test lokal terakhir. Percobaan lokal yang terputus tidak ditandai PASS; hasil optimized dan instrumentation akhir di atas berasal dari CI. Laporan ini hanya mengubah dokumentasi, source aplikasi/test yang diuji tetap b399f7a.
+
+Login/akun/generasi ChatGPT dan Flow nyata, overlay/Accessibility OEM, serta penerimaan Galaxy A06 tetap **NEEDS_REAL_DEVICE**. Lihat [checklist perangkat](REAL_DEVICE_ACCEPTANCE.md).

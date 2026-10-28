@@ -1,3 +1,5 @@
+> Pembaruan 0.7.0: [Workflow Studio V2](WORKFLOW_STUDIO_V2.md) menambahkan approval akun/proyek/aksi di browser BYGA, guard duplicate dispatch, proyek NEW/CURRENT, dan handoff browser resmi. Akun diverifikasi manual oleh pengguna; kompatibilitas situs asli tetap NEEDS_REAL_DEVICE.
+
 # Workflow aplikasi, ChatGPT dan Google Flow — 0.5.0
 
 ## Memulai

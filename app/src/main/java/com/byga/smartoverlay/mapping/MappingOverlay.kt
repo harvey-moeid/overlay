@@ -69,7 +69,7 @@ class MappingOverlay(private val context:Context,private val scope:CoroutineScop
             button(box,"Tunjuk tombol langsung"){close();point(snapshot)}
             snapshot.candidates.drop(page*12).take(12).forEach { candidate ->
                 val name=candidate.identity.description.ifBlank{candidate.identity.label}.ifBlank{candidate.identity.resourceId.substringAfterLast('/')}
-                button(box,name.take(90)){review(snapshot,candidate,null)}
+                button(box,"${candidate.kind} • ${name.ifBlank{candidate.identity.role.substringAfterLast('.')}}".take(90)){review(snapshot,candidate,null)}
             }
             if(page>0)button(box,"← Tombol sebelumnya"){list(snapshot,page-1)}
             if((page+1)*12<snapshot.candidates.size)button(box,"Tombol berikutnya →"){list(snapshot,page+1)}
@@ -117,7 +117,7 @@ class MappingOverlay(private val context:Context,private val scope:CoroutineScop
     }
     private fun review(snapshot:MappingSnapshot,candidate:MappingCandidate?,point:Pair<Float,Float>?) {
         if(candidate==null && point==null){toast("Target tidak ditemukan");return}
-        val semantic=candidate!=null && snapshot.candidates.count{it.identity==candidate.identity}==1
+        val semantic=candidate!=null && candidate.identity.stable() && snapshot.candidates.count{it.identity==candidate.identity}==1
         val selectedPoint=point ?: candidate?.bounds?.let{(it.left+it.right)/2f to (it.top+it.bottom)/2f}
         val defaultName=candidate?.identity?.let{it.description.ifBlank{it.label}.ifBlank{it.resourceId.substringAfterLast('/')}} ?: "Posisi manual"
         show("Tombol dipilih • tanya dahulu") { box ->
@@ -133,13 +133,17 @@ class MappingOverlay(private val context:Context,private val scope:CoroutineScop
                 val mapping=ButtonMapping(name=name.text.toString().take(80),scope=snapshot.scope,
                     kind=if(semantic)MappingKind.SEMANTIC else MappingKind.POINT,
                     identity=candidate?.identity ?: TargetIdentity(),x=(selectedPoint?.first ?: 0f)/snapshot.width,y=(selectedPoint?.second ?: 0f)/snapshot.height,
-                    width=snapshot.width,height=snapshot.height,rotation=snapshot.rotation,layoutHash=snapshot.layoutHash,askEveryTime=ask.isChecked)
+                    width=snapshot.width,height=snapshot.height,rotation=snapshot.rotation,layoutHash=snapshot.layoutHash,askEveryTime=ask.isChecked,elementKind=candidate?.kind ?: ElementKind.BUTTON)
                 if(!mapping.validate()){toast("Mapping tidak valid");return}
                 chosen=true
                 val permit=if(test)MappingClickPermit(mapping.fingerprint(),SystemClock.elapsedRealtime()) else null
                 close()
                 work=scope.launch {
                     BygaDatabase.get(context).records().save(Record("button_mapping",mapping.id,mapping.encode()))
+                    if(!test && com.byga.smartoverlay.workflow.GuidedRecorder.recording.value!=null) {
+                        runCatching{com.byga.smartoverlay.workflow.GuidedRecorder.append(context,mapping)}
+                            .onFailure{toast(it.message ?: "Draft rekaman penuh")}
+                    }
                     if(test) {
                         delay(450)
                         try {
@@ -151,7 +155,7 @@ class MappingOverlay(private val context:Context,private val scope:CoroutineScop
                 }
             }
             button(box,"Simpan saja"){save(false)}
-            button(box,"Simpan & uji tombol sekarang"){save(true)}
+            if(candidate==null || candidate.clickable && candidate.kind!=ElementKind.INPUT)button(box,"Simpan & uji tombol sekarang"){save(true)}
             button(box,"Batal"){dismiss()}
         }
         highlight(snapshot,candidate?.bounds ?: selectedPoint?.let{TargetBounds(it.first.toInt()-28,it.second.toInt()-28,it.first.toInt()+28,it.second.toInt()+28)})
@@ -171,7 +175,8 @@ class MappingOverlay(private val context:Context,private val scope:CoroutineScop
         show("Workflow meminta klik") { box ->
             val m=request.mapping
             box.addView(text("${m.name}\n${m.scope.packageName}\n${m.scope.site.ifBlank{m.scope.screen}}\n${if(m.kind==MappingKind.POINT)"Posisi manual ${(m.x*100).toInt()}% × ${(m.y*100).toInt()}%. Periksa target pada layar sebelum melanjutkan." else "Klik satu kali pada tombol beridentitas yang sudah dipetakan."}\nGenerate dapat memakai kredit akun situs."))
-            button(box,"Ya, klik satu kali"){if(MappingRuntime.confirmation.value===request)request.answer.complete(MappingClickPermit(m.fingerprint(),SystemClock.elapsedRealtime()));close()}
+            box.addView(text("Aksi: ${request.operation}\n${request.value.take(4000)}\nPeriksa akun aktif sebelum menyetujui."))
+            button(box,"Ya, jalankan satu kali"){if(MappingRuntime.confirmation.value===request)request.answer.complete(MappingClickPermit(m.fingerprint(),SystemClock.elapsedRealtime(),request.operation,mappingHash(request.value)));close()}
             button(box,"Batal"){request.answer.complete(null);close()}
         }
         if(request.mapping.kind==MappingKind.POINT) {
