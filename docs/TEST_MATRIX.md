@@ -84,13 +84,14 @@ Gerbang akhir Studio 0.4.0: `testDebugUnitTest assembleDebug assembleDebugAndroi
 
 ## Automation V2 — 0.7.0 / 28 Oktober 2026
 
-Baseline commit `89c9b8c`: 220/220 tes JVM dan fixture offline PASS sebelum perubahan. Hasil V2: **268/268 tes JVM**, **0 failure/error/skipped** pada gerbang `./scripts/cloud-build.sh testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug` (BUILD SUCCESSFUL). Tes mencakup Kotlin logic/state machine, Accessibility Robolectric SDK35, Room migration/reopen serta Compose UI. Android lint: **0 error/fatal, 93 warning**; warning belum seluruhnya dibersihkan. [Ringkasan terstruktur](qa/automation-v2-cloud.json).
+Baseline commit `89c9b8c`: 220/220 tes JVM dan fixture offline PASS sebelum perubahan. Hasil V2: **270/270 tes JVM**, **0 failure/error/skipped** pada gerbang `./scripts/cloud-build.sh testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug` (BUILD SUCCESSFUL). Tes mencakup Kotlin logic/state machine, Accessibility Robolectric SDK35, Room migration/reopen serta Compose UI. Android lint: **0 error/fatal, 93 warning**; warning belum seluruhnya dibersihkan. [Ringkasan terstruktur](qa/automation-v2-cloud.json).
 
 Tambahan pengujian nyata:
 
 - Tombol bergeser, resource ID/struktur berubah, duplikasi, disabled, window/package salah dan snapshot stale; permit input terikat operasi/teks.
 - Dialog/panel sistem aktif di atas aplikasi memblokir discovery/klik/Kembali; dekorasi sistem yang tidak aktif tidak memblokir snapshot.
 - Discovery input tanpa isi field, checkbox/tab/container scroll, foreign-package child, password/OTP termasuk resource `otp_code`; set-text diterima tanpa nilai sesuai ditolak. Fixture node Robolectric bukan bukti native Binder aplikasi asli.
+- Transisi launch→wait saat target loading atau foreground sebelumnya berbeda memakai observasi scope terbatas; Stop menghentikan observasi berikutnya tanpa dispatch.
 - IF/ELSE maju, schema/timeout/retry, dry-run mapping hilang/diubah, evidence accepted vs uncertain, Stop saat aksi aktif, timeout generate satu dispatch, provider/network gagal tanpa retry, process death/checkpoint dan review rerun berbiaya.
 - Room SQLite asli pada Robolectric: migrasi 1→2 mempertahankan mapping/workflow/checkpoint, recorder draft/reopen dan revoke grant. Tes instrumentation Keystore existing tetap memerlukan Android runtime.
 - Compose: route lama, area latihan, recorder dan editor IF/ELSE dapat dijangkau pada layout HP; tombol aksi dibungkus sesuai lebar layar.

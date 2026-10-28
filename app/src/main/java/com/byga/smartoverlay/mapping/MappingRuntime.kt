@@ -15,8 +15,11 @@ object MappingRuntime {
     val confirmation=pending.asStateFlow()
     fun cancel() { pending.value?.answer?.complete(null);pending.value=null }
     private suspend fun awaitUnpaused(){while(paused){currentCoroutineContext().ensureActive();delay(100)}}
-    suspend fun waitFor(context:android.content.Context,mapping:ButtonMapping,condition:String,timeoutMs:Long,retries:Int):String {
+    suspend fun waitFor(context:android.content.Context,mapping:ButtonMapping,condition:String,timeoutMs:Long,retries:Int):String = withTimeout(timeoutMs) {
         require(condition in setOf("FOUND","NOT_FOUND") && retries in 0..2)
+        awaitMappingScope(mapping.scope,minOf(15000,timeoutMs),{awaitUnpaused()}) {
+            checkNotNull(SafeAccessibilityService.current){"Accessibility dicabut"}.mapping.snapshot()
+        }
         repeat(retries+1) {
             val result=withTimeoutOrNull((timeoutMs/(retries+1)).coerceAtLeast(1)) {
                 while(true) {
@@ -29,25 +32,14 @@ object MappingRuntime {
                 }
                 @Suppress("UNREACHABLE_CODE") ""
             }
-            if(result!=null)return result
+            if(result!=null)return@withTimeout result
         }
         error("Timeout kondisi $condition; hanya observasi diulang, tidak ada aksi dikirim")
     }
     suspend fun execute(context:android.content.Context,mapping:ButtonMapping,operation:String="CLICK",value:String=""):String {
         check(mapping.enabled && mapping.validate()){"Mapping belum valid atau dinonaktifkan"}
         val service=SafeAccessibilityService.current ?: error("Aktifkan Accessibility untuk Smart Mapping")
-        // Allow a preceding LAUNCH_APP step to finish opening its target; never click a different app.
-        var reason="Buka layar tujuan yang dipetakan"
-        val ready=withTimeoutOrNull(15000) {
-            while(true) {
-                awaitUnpaused()
-                val snapshot=try { service.mapping.snapshot() } catch(e:CancellationException){throw e} catch(e:Exception){reason=e.message ?: reason;null}
-                if(snapshot?.scope==mapping.scope)return@withTimeoutOrNull snapshot
-                delay(1000)
-            }
-            @Suppress("UNREACHABLE_CODE") null
-        }
-        check(ready!=null){"Layar target belum siap: $reason"}
+        val ready=awaitMappingScope(mapping.scope,beforeObserve={awaitUnpaused()}){service.mapping.snapshot()}
         check(if(mapping.kind==MappingKind.SEMANTIC)MappingPolicy.resolve(mapping,ready,SystemClock.elapsedRealtime())!=null else MappingPolicy.pointAllowed(mapping,ready,SystemClock.elapsedRealtime())){"Target hilang/kembar atau layout berubah. Petakan ulang."}
         var permit:MappingClickPermit?=null
         if(mapping.askEveryTime || mapping.kind==MappingKind.POINT || mapping.scope.screen!="mapping-test" || operation!="CLICK") {
@@ -68,4 +60,19 @@ suspend fun requireCurrentMapping(context:android.content.Context,mapping:Button
     val current=com.byga.smartoverlay.data.BygaDatabase.get(context).records().get("button_mapping",mapping.id)
         ?.let{ButtonMapping.decode(it.body)}
     check(current!=null && current.enabled && current.fingerprint()==mapping.fingerprint()){"Mapping diubah, dihapus, atau dinonaktifkan. Klik dibatalkan."}
+}
+
+/** Shared, bounded startup observation for launch → wait/action. No dispatch during recovery. */
+internal suspend fun awaitMappingScope(expected:MappingScope,timeoutMillis:Long=15000,beforeObserve:suspend()->Unit={},observe:suspend()->MappingSnapshot):MappingSnapshot {
+    var reason="Buka layar tujuan yang dipetakan"
+    val ready=withTimeoutOrNull(timeoutMillis){
+        while(true){
+            beforeObserve()
+            val snapshot=try{observe()}catch(e:CancellationException){throw e}catch(e:Exception){reason=e.message ?: reason;null}
+            if(snapshot?.scope==expected)return@withTimeoutOrNull snapshot
+            delay(1000)
+        }
+        @Suppress("UNREACHABLE_CODE") null
+    }
+    return checkNotNull(ready){"Layar target belum siap: $reason"}
 }

@@ -80,4 +80,19 @@ class AutomationV2Test {
         assertEquals(MappingStatus.FOUND,MappingPolicy.inspect(old,snapshot(checkbox),1000).status)
     }
 
+    @Test fun launchToWaitRecoversFromLoadingOrPreviousForegroundWithoutActing()=runTest {
+        var observations=0
+        val ready=awaitMappingScope(mapping.scope,3000){
+            observations++
+            if(observations==1)error("app loading")
+            if(observations==2)snapshot(candidate).copy(scope=MappingScope(MappingPolicy.BYGA,screen="mapping-test")) else snapshot(candidate)
+        }
+        assertEquals(mapping.scope,ready.scope);assertEquals(3,observations)
+    }
+    @Test fun stoppingScopeWaitCancelsFurtherObservations()=runTest {
+        var observations=0
+        val job=launch{awaitMappingScope(mapping.scope){observations++;snapshot(candidate).copy(scope=MappingScope(MappingPolicy.BYGA,screen="mapping-test"))}}
+        runCurrent();job.cancel();job.join();advanceTimeBy(5000);assertEquals(1,observations)
+    }
+
 }

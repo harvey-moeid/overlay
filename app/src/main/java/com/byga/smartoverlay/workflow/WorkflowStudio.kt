@@ -62,9 +62,9 @@ class WorkflowViewModel(app: Application): AndroidViewModel(app) {
                 val saved=dao.get("button_mapping",step.value) ?: error("Mapping dihapus. Pilih ulang tombol di editor.")
                 val mapping=ButtonMapping.decode(saved.body)
                 check(mapping.enabled && mapping.fingerprint()==step.selector && mapping.scope.packageName==step.packageName){"Versi mapping berubah/nonaktif. Pilih ulang dan review workflow."}
-                if(step.action==Action.WAIT_FOR_STATE)return MappingRuntime.waitFor(app,mapping,step.argument,step.timeoutMs,step.retries)
                 val active=SafeAccessibilityService.current?.foregroundPackage()
                 if(active!=mapping.scope.packageName || mapping.scope.packageName==MappingPolicy.BYGA)openMappingTarget(app,mapping)
+                if(step.action==Action.WAIT_FOR_STATE)return MappingRuntime.waitFor(app,mapping,step.argument,step.timeoutMs,step.retries)
                 val result=MappingRuntime.execute(app,mapping,MappingSteps.operation(step),step.argument.replace("{{output}}",previous))
                 dao.save(Record("mapping_test",mapping.id,result))
                 return previous

@@ -11,7 +11,7 @@ Studio, codec, runner dan Room existing diperluas; tidak ada workflow engine ked
 
 ## Kondisi, retry dan dry run
 
-`WAIT_FOR_STATE` memakai mapping semantik versi yang dipilih, kondisi FOUND/NOT_FOUND, timeout 1000–600000ms dan 0–2 retry observasi. NOT_FOUND hanya berarti identitas tidak ada dalam scope yang benar; scope salah/ambigu/grant dicabut tidak dianggap kondisi sukses. Timeout keseluruhan tetap membatasi percobaan. Hasil wait menjadi output string FOUND/NOT_FOUND; perhatikan ini jika langkah berikutnya memakai `{{output}}`.
+`WAIT_FOR_STATE` memakai mapping semantik versi yang dipilih, kondisi FOUND/NOT_FOUND, timeout 1000–600000ms dan 0–2 retry observasi. NOT_FOUND hanya berarti identitas tidak ada dalam scope yang benar; scope salah/ambigu/grant dicabut tidak dianggap kondisi sukses. Wait menyiapkan aplikasi target dan menunggu scope yang cocok secara terbatas (maksimal 15 detik), sehingga transisi launch/loading tidak dianggap hasil NOT_FOUND. Timeout keseluruhan tetap membatasi seluruh observasi dan percobaan. Hasil wait menjadi output string FOUND/NOT_FOUND; perhatikan ini jika langkah berikutnya memakai `{{output}}`.
 
 IF/ELSE membandingkan output sebelumnya dengan EQUALS atau NOT_EMPTY. IF benar melanjutkan langkah berikutnya, ELSE melewati 1–50 langkah ke depan yang masih dalam plan. Tidak ada jump mundur atau loop. Urutan/prasyarat web tetap diperiksa saat validasi.
 
